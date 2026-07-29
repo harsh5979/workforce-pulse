@@ -55,6 +55,7 @@ jobs:
             cd ~/workforce-pulse
             
             echo "🐳 Building Docker images..."
+            docker compose down || true
             docker compose up --build -d
 
             echo "⏳ Waiting 10 seconds for database to initialize..."
