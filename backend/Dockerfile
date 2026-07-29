@@ -23,4 +23,4 @@ COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 EXPOSE 5000
 
 # Auto-run PostgreSQL schema migration and seed data on startup before launching API server
-CMD ["sh", "-c", "npx tsx src/db/migrate.ts && npx tsx src/db/seed.ts && node dist/index.js"]
+CMD ["node", "dist/index.js"]
