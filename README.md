@@ -3,9 +3,10 @@
 > **Engineering Challenge** — Workforce Analytics Dashboard
 > Answering the COO question: *"Where are we wasting the most time and money, and what should we automate first?"*
 
-## 🔗 Live URL
+## 🔗 Live URLs
 
-`http://your.server.ip` ← update after deployment
+- **Frontend Application:** [https://workforce.iomd.site](https://workforce.iomd.site)
+- **Backend API:** [https://workforce.api.iomd.site](https://workforce.api.iomd.site)
 
 ---
 
@@ -39,13 +40,24 @@ docker compose -f docker-compose.dev.yml up
 
 ### 4. Run ingestion
 ```bash
-curl -X POST http://localhost:4000/api/ingest
+curl -X POST http://localhost:5000/api/ingest
 ```
 
 ### 5. Open the dashboard
 ```
 http://localhost:3000
 ```
+
+---
+
+## 🌍 Production Deployment
+
+Once the configuration and Nginx proxy are prepared on your server, simply run:
+
+```bash
+docker compose up --build -d
+```
+This builds and launches the production-optimized Next.js and Node.js containers in detached mode.
 
 ---
 
