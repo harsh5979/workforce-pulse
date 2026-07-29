@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background Container -->
+  <rect width="512" height="512" rx="128" fill="#0F172A"/>
+  
+  <!-- Subtle Gradient Glow -->
+  <circle cx="256" cy="256" r="200" fill="url(#pulse-glow)" opacity="0.3"/>
+  
+  <!-- Workforce Bar + Pulse Graphic -->
+  <path d="M110 320V250" stroke="#6366F1" stroke-width="32" stroke-linecap="round"/>
+  <path d="M190 320V180" stroke="#818CF8" stroke-width="32" stroke-linecap="round"/>
+  
+  <!-- Pulse Activity Spike -->
+  <path d="M270 320V120L350 220H410" 
+        stroke="#10B981" 
+        stroke-width="36" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+
+  <!-- Accent Node -->
+  <circle cx="410" cy="220" r="24" fill="#34D399"/>
+
+  <defs>
+    <radialGradient id="pulse-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 256) rotate(90) scale(200)">
+      <stop stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#0F172A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>
