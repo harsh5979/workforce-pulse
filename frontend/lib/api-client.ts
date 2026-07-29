@@ -10,14 +10,7 @@ const apiClient = axios.create({
   withCredentials: true, // Send cookies cross-origin
 });
 
-// Intercept requests to attach the token
-apiClient.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().token;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// Cookies are automatically sent because of withCredentials: true
 
 apiClient.interceptors.response.use(
   (response) => response.data,
