@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: workforce
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # Expose only to localhost for security, or rely entirely on docker network
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d workforce"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/workforce
+      PORT: 5000
+      NODE_ENV: production
+      # Tells the backend what the frontend origin is for CORS
+      SITE_URL: https://workforce.iomd.site
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-sk-or-v1-free-placeholder}
+    ports:
+      # Bind to localhost so Nginx can proxy to it safely
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./data:/app/data:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Crucial: Next.js embeds this URL at build time!
+        NEXT_PUBLIC_API_URL: https://workforce.api.iomd.site
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: https://workforce.api.iomd.site
+      NEXT_PUBLIC_SITE_URL: https://workforce.iomd.site
+    ports:
+      # Bind to localhost so Nginx can proxy to it safely
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
