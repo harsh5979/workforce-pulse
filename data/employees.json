@@ -1,0 +1,189 @@
+{
+  "metadata": {
+    "exported_at": "2025-11-05T06:24:18Z",
+    "version": "2.1",
+    "exported_by": "HRMS-System"
+  },
+  "data": {
+    "employees": [
+      {
+        "employee_id": "E001",
+        "name": "Priya Sharma",
+        "department": "Sales",
+        "role": "Account Executive",
+        "tenure": 2.5,
+        "compensation": { "annual_inr": 800000 },
+        "working_hours": "9-18",
+        "status": "active"
+      },
+      {
+        "EmployeeID": "E002",
+        "name": "Rahul Gupta",
+        "Dept": "Finance",
+        "role": "Financial Analyst",
+        "tenure": 4.0,
+        "compensation": { "annual_inr": 1200000 },
+        "working_hours": {"start": "09:00", "end": "18:00"},
+        "status": "active"
+      },
+      {
+        "employee_id": "E003",
+        "name": "Anjali Verma",
+        "department": "Operations",
+        "meta": { "role": "Operations Manager" },
+        "tenure_years": 6.0,
+        "salary": 1500000,
+        "working_hours": "9-18",
+        "status": "active"
+      },
+      {
+        "employee_id": "E004",
+        "name": "Suresh Nair",
+        "department": "HR",
+        "role": "HR Manager",
+        "tenure": 3.5,
+        "compensation": { "hourly_inr": 750 },
+        "working_hours": {"start": "09:00", "end": "18:00"},
+        "status": "active"
+      },
+      {
+        "EmployeeID": "E005",
+        "name": "Kavitha Pillai",
+        "Dept": "CS",
+        "meta": { "role": "Customer Success Manager" },
+        "tenure": 1.5,
+        "compensation": { "lpa": 7.5 },
+        "working_hours": "9-18",
+        "status": "active"
+      },
+      {
+        "employee_id": "E006",
+        "name": "Ravi Krishnan",
+        "department": "Marketing",
+        "role": "Marketing Specialist",
+        "tenure": 2.0,
+        "compensation": { "annual_inr": 720000 },
+        "working_hours": {"start": "09:30", "end": "18:30"},
+        "status": "active"
+      },
+      {
+        "employee_id": "E007",
+        "name": "Meera Iyer",
+        "department": "Finance",
+        "role": "Senior Financial Analyst",
+        "tenure_years": 5.5,
+        "compensation": { "annual_inr": 1600000 },
+        "working_hours": "9-18",
+        "status": "active"
+      },
+      {
+        "EmployeeID": "E007",
+        "name": "M. Iyer",
+        "department": "Finance",
+        "role": "Financial Analyst",
+        "tenure": 5.0,
+        "compensation": { "annual_inr": 1400000 },
+        "working_hours": "9-18",
+        "status": "active"
+      },
+      {
+        "employee_id": "E008",
+        "name": "Arjun Menon",
+        "department": "Sales",
+        "role": "Sales Development Rep",
+        "tenure": 1.0,
+        "compensation": { "lpa": 6.0 },
+        "working_hours": {"start": "09:00", "end": "18:00"},
+        "status": "active"
+      },
+      {
+        "employee_id": "E009",
+        "name": "Deepa Nambiar",
+        "department": "Operations",
+        "meta": { "role": "Process Analyst" },
+        "tenure": 3.0,
+        "compensation": { "hourly_inr": 600 },
+        "working_hours": "9-18",
+        "status": "active"
+      },
+      {
+        "EmployeeID": "E010",
+        "name": "Kiran Reddy",
+        "Dept": "CS",
+        "role": "Customer Support Specialist",
+        "tenure": 2.5,
+        "compensation": { "annual_inr": 650000 },
+        "working_hours": {"start": "09:00", "end": "18:00"},
+        "status": "terminated",
+        "terminated_on": "2025-10-31"
+      },
+      {
+        "employee_id": "E011",
+        "name": "Sita Devi",
+        "department": "HR",
+        "role": "HR Generalist",
+        "tenure_years": 1.5,
+        "compensation": { "lpa": 5.5 },
+        "working_hours": "9-18",
+        "status": "active"
+      },
+      {
+        "employee_id": "E012",
+        "name": "Vikram Singh",
+        "department": "Marketing",
+        "role": "Content Strategist",
+        "tenure": 2.0,
+        "compensation": { "annual_inr": 750000 },
+        "working_hours": {"start": "09:00", "end": "18:00"},
+        "status": "active"
+      },
+      {
+        "employee_id": "E013",
+        "name": "Nisha Patel",
+        "department": "Sales",
+        "role": "Account Executive",
+        "tenure": 3.0,
+        "compensation": { "annual_inr": 850000 },
+        "working_hours": "9-18",
+        "status": "active"
+      },
+      {
+        "employee_id": "E014",
+        "name": "Arun Kumar",
+        "department": "Finance",
+        "role": "Finance Manager",
+        "tenure_years": 7.0,
+        "compensation": { "annual_inr": 1800000 },
+        "working_hours": {"start": "09:00", "end": "19:00"},
+        "status": "active"
+      },
+      {
+        "employee_id": "E015",
+        "name": "Pooja Joshi",
+        "department": "Operations",
+        "role": "Process Analyst",
+        "tenure": 1.0,
+        "compensation": { "hourly_inr": 550 },
+        "working_hours": "9-18",
+        "status": "active"
+      },
+      {
+        "employee_id": "E016",
+        "name": "Amit Bhatt",
+        "compensation": { "annual_inr": 900000 },
+        "working_hours": "9-18",
+        "status": "active"
+      },
+      {
+        "employee_id": "E017",
+        "name": "Lakshmi Raj",
+        "department": "Finance",
+        "role": "Accountant",
+        "tenure": 4.5,
+        "compensation": { "lpa": 9.5 },
+        "working_hours": {"start": "09:00", "end": "18:00"},
+        "status": "active"
+      }
+    ]
+  }
+}

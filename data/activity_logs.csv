@@ -1,0 +1,273 @@
+employee_id,department,timestamp,app_used,task_category,duration_minutes,is_repetitive
+E001,Sales,2025-10-14 09:23:00,Salesforce,CRM Updates,45,TRUE
+E001,Sales,2025-10-14 10:15:00,Gmail,Email Triage,62,TRUE
+E001,Sales,2025-10-14 11:30:00,Zoom,Meetings,60,false
+E001,Sales,2025-10-15 09:00:00,Salesforce,CRM Updates,38,1
+E001,Sales,2025-10-15 10:45:00,Gmail,Email Triage,55,yes
+E001,Sales,2025-10-16 09:10:00, Salesforce ,CRM Updates,42,TRUE
+E001,Sales,2025-10-16 11:00:00,Zoom,Meetings,30,0
+E001,Sales,2025-10-17 09:00:00,gmail,Email Triage,68,YES
+E001,Sales,2025-10-17 10:30:00,Salesforce,CRM Updates,40,True
+E001,Sales,2025-10-18 09:15:00,Excel,Report Generation,90,TRUE
+E002,Finance,2025-10-14 09:00:00,Excel,Report Generation,120,TRUE
+E002,Finance,2025-10-14 11:30:00,Outlook,Email Triage,45,TRUE
+E002,Finance,2025-10-14 14:00:00,SAP,Data Entry,75,1
+E002,Finance,2025-10-15 09:00:00,Excel,Report Generation,95,TRUE
+E002,Finance,2025-10-15 11:00:00,Outlook,Email Triage,52,yes
+E002,Finance,2025-10-15 14:00:00,SAP,Data Entry,80,1
+E002,Finance,2025-10-16 09:00:00,Excel,Report Generation,110,TRUE
+E002,Finance,2025-10-17 09:00:00,Outlook,Email Triage,38,Yes
+E002,Finance,2025-10-17 14:00:00,SAP,Data Entry,65,TRUE
+E002,Finance,2025-10-18 09:00:00,Excel,Report Generation,105,1
+E003,Operations,2025-10-14 09:30:00,Jira,Scheduling,45,false
+E003,Operations,2025-10-14 11:00:00,Confluence,Documentation,60,0
+E003,Operations,2025-10-14 14:00:00,Slack,Meetings,30,no
+E003,Operations,2025-10-15 09:00:00,Jira,Scheduling,50,FALSE
+E003,Operations,2025-10-15 11:30:00,Excel,Data Entry,75,TRUE
+E003,Operations,2025-10-16 09:00:00,Jira,Scheduling,42,false
+E003,Operations,2025-10-16 14:00:00,Confluence,Documentation,55,0
+E003,Operations,2025-10-17 09:00:00,Excel,Data Entry,80,TRUE
+E003,Operations,2025-10-18 09:00:00,Jira,Scheduling,48,FALSE
+E004,HR,2025-10-14 09:00:00,Workday,HR Admin,90,TRUE
+E004,HR,2025-10-14 11:30:00,Gmail,Email Triage,45,TRUE
+E004,HR,2025-10-14 14:00:00,Zoom,Meetings,60,false
+E004,HR,2025-10-15 09:00:00,Workday,HR Admin,85,TRUE
+E004,HR,2025-10-15 11:00:00,Gmail,Email Triage,52,yes
+E004,HR,2025-10-15 14:30:00,Excel,Report Generation,70,TRUE
+E004,HR,2025-10-16 09:00:00,Workday,HR Admin,95,1
+E004,HR,2025-10-17 09:00:00,Gmail,Email Triage,48,TRUE
+E004,HR,2025-10-17 14:00:00,Workday,Recruitment,120,false
+E004,HR,2025-10-18 09:00:00,Workday,HR Admin,88,TRUE
+E005,CS,2025-10-14 09:00:00,Zendesk,Customer Support,180,TRUE
+E005,CS,2025-10-14 13:00:00,Gmail,Email Triage,60,TRUE
+E005,CS,2025-10-15 09:00:00,Zendesk,Customer Support,175,TRUE
+E005,CS,2025-10-15 13:00:00,Gmail,Email Triage,55,yes
+E005,CS,2025-10-16 09:00:00,Zendesk,Customer Support,190,1
+E005,CS,2025-10-16 14:00:00,Slack,Meetings,30,no
+E005,CS,2025-10-17 09:00:00,Zendesk,Customer Support,165,TRUE
+E005,CS,2025-10-17 13:00:00,Gmail,Email Triage,62,YES
+E005,CS,2025-10-18 09:00:00,Zendesk,Customer Support,170,TRUE
+E006,Marketing,2025-10-14 09:00:00,HubSpot,CRM Updates,60,TRUE
+E006,Marketing,2025-10-14 10:30:00,Google Docs,Documentation,90,false
+E006,Marketing,2025-10-14 14:00:00,Zoom,Meetings,60,no
+E006,Marketing,2025-10-15 09:00:00,HubSpot,CRM Updates,55,TRUE
+E006,Marketing,2025-10-15 11:00:00,Google Sheets,Report Generation,75,TRUE
+E006,Marketing,2025-10-16 09:00:00,HubSpot,CRM Updates,65,1
+E006,Marketing,2025-10-16 14:00:00,Google Docs,Documentation,80,false
+E006,Marketing,2025-10-17 09:00:00,HubSpot,CRM Updates,58,TRUE
+E006,Marketing,2025-10-18 09:00:00,Google Sheets,Report Generation,85,TRUE
+E007,Finance,2025-10-14 09:00:00,Excel,Report Generation,130,TRUE
+E007,Finance,2025-10-14 12:00:00,Outlook,Email Triage,50,TRUE
+E007,Finance,2025-10-14 15:00:00,SAP,Data Entry,70,TRUE
+E007,Finance,2025-10-15 09:00:00,Excel,Report Generation,115,TRUE
+E007,Finance,2025-10-15 12:00:00,Outlook,Email Triage,55,1
+E007,Finance,2025-10-15 15:00:00,SAP,Data Entry,72,yes
+E007,Finance,2025-10-16 09:00:00,Excel,Report Generation,125,TRUE
+E007,Finance,2025-10-16 13:00:00,Zoom,Meetings,45,false
+E007,Finance,2025-10-17 09:00:00,Outlook,Email Triage,42,TRUE
+E007,Finance,2025-10-17 14:00:00,SAP,Data Entry,78,TRUE
+E007,Finance,2025-10-18 09:00:00,Excel,Report Generation,135,1
+E008,Sales,2025-10-14 09:00:00,Salesforce,CRM Updates,50,TRUE
+E008,Sales,2025-10-14 10:30:00,Zoom,Meetings,60,0
+E008,Sales,2025-10-14 14:00:00,Gmail,Email Triage,45,TRUE
+E008,Sales,2025-10-15 09:00:00,Salesforce,CRM Updates,55,YES
+E008,Sales,2025-10-15 11:00:00,Excel,Report Generation,80,TRUE
+E008,Sales,2025-10-16 09:00:00,Salesforce,CRM Updates,48,1
+E008,Sales,2025-10-16 14:00:00,Zoom,Meetings,30,FALSE
+E008,Sales,2025-10-17 09:00:00,Gmail,Email Triage,52,TRUE
+E008,Sales,2025-10-18 09:00:00,Salesforce,CRM Updates,45,TRUE
+E009,Operations,2025-10-14 09:00:00,Jira,Scheduling,40,FALSE
+E009,Operations,2025-10-14 11:00:00,Excel,Data Entry,85,TRUE
+E009,Operations,2025-10-14 14:00:00,Confluence,Documentation,55,no
+E009,Operations,2025-10-15 09:00:00,Excel,Data Entry,90,TRUE
+E009,Operations,2025-10-15 12:00:00,Jira,Scheduling,45,false
+E009,Operations,2025-10-16 09:00:00,Excel,Data Entry,88,TRUE
+E009,Operations,2025-10-17 09:00:00,Jira,Scheduling,42,FALSE
+E009,Operations,2025-10-17 14:00:00,Excel,Data Entry,95,1
+E009,Operations,2025-10-18 09:00:00,Confluence,Documentation,60,no
+E010,CS,2025-10-14 09:00:00,Zendesk,Customer Support,160,TRUE
+E010,CS,2025-10-14 13:00:00,Slack,Meetings,30,FALSE
+E010,CS,2025-10-14 15:00:00,Gmail,Email Triage,45,TRUE
+E010,CS,2025-10-15 09:00:00,Zendesk,Customer Support,155,TRUE
+E010,CS,2025-10-15 13:00:00,Gmail,Email Triage,48,yes
+E010,CS,2025-10-16 09:00:00,Zendesk,Customer Support,165,1
+E010,CS,2025-10-17 09:00:00,Zendesk,Customer Support,150,TRUE
+E010,CS,2025-10-17 13:00:00,Gmail,Email Triage,52,YES
+E010,CS,2025-10-18 09:00:00,Zendesk,Customer Support,158,TRUE
+E011,HR,2025-10-14 09:00:00,Workday,HR Admin,75,TRUE
+E011,HR,2025-10-14 11:00:00,Zoom,Meetings,60,FALSE
+E011,HR,2025-10-14 14:00:00,Gmail,Email Triage,40,TRUE
+E011,HR,2025-10-15 09:00:00,Workday,HR Admin,80,1
+E011,HR,2025-10-15 11:30:00,Workday,Recruitment,90,false
+E011,HR,2025-10-16 09:00:00,Workday,HR Admin,78,TRUE
+E011,HR,2025-10-16 14:00:00,Gmail,Email Triage,42,yes
+E011,HR,2025-10-17 09:00:00,Workday,HR Admin,82,TRUE
+E011,HR,2025-10-18 09:00:00,Workday,Recruitment,95,false
+E012,Marketing,2025-10-14 09:00:00,HubSpot,CRM Updates,55,TRUE
+E012,Marketing,2025-10-14 10:30:00,Zoom,Meetings,60,FALSE
+E012,Marketing,2025-10-14 14:00:00,Google Sheets,Report Generation,70,TRUE
+E012,Marketing,2025-10-15 09:00:00,HubSpot,CRM Updates,52,1
+E012,Marketing,2025-10-15 11:00:00,Google Docs,Documentation,85,false
+E012,Marketing,2025-10-16 09:00:00,HubSpot,CRM Updates,58,TRUE
+E012,Marketing,2025-10-17 09:00:00,Google Sheets,Report Generation,75,TRUE
+E012,Marketing,2025-10-18 09:00:00,HubSpot,CRM Updates,50,yes
+E013,Sales,2025-10-14 09:00:00,Salesforce,CRM Updates,42,TRUE
+E013,Sales,2025-10-14 11:00:00,Gmail,Email Triage,55,TRUE
+E013,Sales,2025-10-14 14:00:00,Zoom,Meetings,45,FALSE
+E013,Sales,2025-10-15 09:00:00,Salesforce,CRM Updates,48,1
+E013,Sales,2025-10-15 11:00:00,Gmail,Email Triage,58,yes
+E013,Sales,2025-10-16 09:00:00, Salesforce,CRM Updates,45,TRUE
+E013,Sales,2025-10-16 14:00:00,Excel,Report Generation,70,TRUE
+E013,Sales,2025-10-17 09:00:00,Gmail,Email Triage,62,TRUE
+E013,Sales,2025-10-18 09:00:00,Salesforce,CRM Updates,40,1
+E014,Finance,2025-10-14 09:00:00,Excel,Report Generation,-30,TRUE
+E014,Finance,2025-10-14 10:00:00,Excel,Report Generation,100,TRUE
+E014,Finance,2025-10-14 13:00:00,SAP,Data Entry,0,TRUE
+E014,Finance,2025-10-14 15:00:00,Outlook,Email Triage,1200,yes
+E014,Finance,2025-10-15 09:00:00,Excel,Report Generation,92,TRUE
+E014,Finance,2025-10-15 13:00:00,SAP,Data Entry,68,1
+E014,Finance,2025-10-16 09:00:00,Excel,Report Generation,98,TRUE
+E014,Finance,2025-10-16 13:00:00,Outlook,Email Triage,45,YES
+E014,Finance,2025-10-17 09:00:00,SAP,Data Entry,72,TRUE
+E014,Finance,2025-10-18 09:00:00,Excel,Report Generation,102,1
+E015,Operations,2025-10-14 09:00:00,Jira,Scheduling,38,FALSE
+E015,Operations,2025-10-14 11:00:00,Excel,Data Entry,78,TRUE
+E015,Operations,2025-10-15 09:00:00,Jira,Scheduling,42,false
+E015,Operations,2025-10-15 11:00:00,Excel,Data Entry,82,TRUE
+E015,Operations,2025-10-16 09:00:00,Confluence,Documentation,65,NA
+E015,Operations,2025-10-16 14:00:00,Excel,Data Entry,75,TRUE
+E015,Operations,2025-10-17 09:00:00,Jira,Scheduling,40,FALSE
+E015,Operations,2025-10-17 14:00:00,Excel,Data Entry,85,1
+E015,Operations,2025-10-18 09:00:00,Confluence,Documentation,60,
+EUNKNOWN,Sales,2025-10-14 09:00:00,Gmail,Email Triage,45,TRUE
+EUNKNOWN,Sales,2025-10-15 09:00:00,Salesforce,CRM Updates,50,TRUE
+E001,Sales,2025-10-21 09:00:00,Salesforce,CRM Updates,48,TRUE
+E001,Sales,2025-10-21 10:30:00,Gmail,Email Triage,58,TRUE
+E001,Sales,2025-10-22 09:00:00,Salesforce,CRM Updates,52,1
+E001,Sales,2025-10-22 11:00:00,Zoom,Meetings,45,FALSE
+E001,Sales,2025-10-23 09:00:00,Gmail,Email Triage,65,TRUE
+E001,Sales,2025-10-24 09:00:00,Salesforce,CRM Updates,44,TRUE
+E002,Finance,2025-10-21 09:00:00,Excel,Report Generation,118,TRUE
+E002,Finance,2025-10-21 12:00:00,Outlook,Email Triage,48,TRUE
+E002,Finance,2025-10-22 09:00:00,SAP,Data Entry,82,1
+E002,Finance,2025-10-22 14:00:00,Excel,Report Generation,105,TRUE
+E002,Finance,2025-10-23 09:00:00,Outlook,Email Triage,42,yes
+E002,Finance,2025-10-24 09:00:00,Excel,Report Generation,112,TRUE
+E005,CS,2025-10-21 09:00:00,Zendesk,Customer Support,185,TRUE
+E005,CS,2025-10-21 13:00:00,Gmail,Email Triage,58,TRUE
+E005,CS,2025-10-22 09:00:00,Zendesk,Customer Support,172,TRUE
+E005,CS,2025-10-22 13:00:00,Gmail,Email Triage,52,yes
+E005,CS,2025-10-23 09:00:00,Zendesk,Customer Support,178,1
+E005,CS,2025-10-24 09:00:00,Zendesk,Customer Support,168,TRUE
+E007,Finance,2025-10-21 09:00:00,Excel,Report Generation,250,TRUE
+E007,Finance,2025-10-21 13:00:00,Outlook,Email Triage,60,TRUE
+E007,Finance,2025-10-22 09:00:00,SAP,Data Entry,85,TRUE
+E007,Finance,2025-10-22 14:00:00,Excel,Report Generation,240,TRUE
+E007,Finance,2025-10-23 09:00:00,Outlook,Email Triage,55,1
+E007,Finance,2025-10-24 09:00:00,Excel,Report Generation,235,TRUE
+E010,CS,2025-10-21 09:00:00,Zendesk,Customer Support,162,TRUE
+E010,CS,2025-10-21 13:00:00,Gmail,Email Triage,50,YES
+E010,CS,2025-10-22 09:00:00,Zendesk,Customer Support,155,TRUE
+E010,CS,2025-10-23 09:00:00,Zendesk,Customer Support,168,TRUE
+E010,CS,2025-10-24 09:00:00,Gmail,Email Triage,45,TRUE
+E003,Operations,2025-10-28 09:00:00,Jira,Scheduling,52,false
+E003,Operations,2025-10-28 11:00:00,Excel,Data Entry,88,TRUE
+E003,Operations,2025-10-28 14:00:00,Confluence,Documentation,70,no
+E004,HR,2025-10-28 09:00:00,Workday,HR Admin,100,TRUE
+E004,HR,2025-10-28 11:30:00,Gmail,Email Triage,55,TRUE
+E004,HR,2025-10-28 14:00:00,Workday,Recruitment,115,false
+E006,Marketing,2025-10-28 09:00:00,HubSpot,CRM Updates,68,TRUE
+E006,Marketing,2025-10-28 11:00:00,Google Sheets,Report Generation,90,TRUE
+E006,Marketing,2025-10-28 14:00:00,Zoom,Meetings,60,FALSE
+E008,Sales,2025-10-28 09:00:00,Salesforce,CRM Updates,55,TRUE
+E008,Sales,2025-10-28 11:00:00,Gmail,Email Triage,60,TRUE
+E008,Sales,2025-10-28 14:00:00,Zoom,Meetings,45,FALSE
+E011,HR,2025-10-28 09:00:00,Workday,HR Admin,85,TRUE
+E011,HR,2025-10-28 11:00:00,Gmail,Email Triage,48,yes
+E011,HR,2025-10-28 14:00:00,Workday,Recruitment,100,false
+E013,Sales,11/04/2025 09:00,Salesforce,CRM Updates,52,TRUE
+E013,Sales,11/04/2025 10:30,Gmail,Email Triage,65,TRUE
+E013,Sales,11/04/2025 14:00,Zoom,Meetings,40,FALSE
+E014,Finance,11/04/2025 09:00,Excel,Report Generation,108,TRUE
+E014,Finance,11/04/2025 13:00,SAP,Data Entry,75,1
+E014,Finance,11/04/2025 15:00,Outlook,Email Triage,48,TRUE
+E015,Operations,11/04/2025 09:00,Excel,Data Entry,90,TRUE
+E015,Operations,11/04/2025 11:00,Jira,Scheduling,45,FALSE
+E009,Operations,11/04/2025 09:00,Excel,Data Entry,95,TRUE
+E009,Operations,11/04/2025 11:30,Confluence,Documentation,65,no
+E012,Marketing,11/04/2025 09:00,HubSpot,CRM Updates,62,1
+E012,Marketing,11/04/2025 11:00,Google Docs,Documentation,88,false
+E017,Finance,2025-10-14 09:00:00,Tally,Invoice Processing,75,TRUE
+E017,Finance,2025-10-14 10:30:00,Gmail,Email Triage,35,TRUE
+E017,Finance,2025-10-14 11:30:00,Excel,Account Reconciliation,90,TRUE
+E017,Finance,2025-10-14 14:00:00,SAP,Data Entry,55,TRUE
+E017,Finance,2025-10-14 15:30:00,Teams,Meetings,45,FALSE
+E017,Finance,2025-10-15 09:00:00,Tally,Invoice Processing,80,TRUE
+E017,Finance,2025-10-15 10:30:00,Excel,Account Reconciliation,85,TRUE
+E017,Finance,2025-10-15 13:00:00,SAP,Data Entry,60,TRUE
+E017,Finance,2025-10-15 14:30:00,Gmail,Email Triage,30,TRUE
+E017,Finance,2025-10-16 09:00:00,Tally,Invoice Processing,70,TRUE
+E017,Finance,2025-10-16 10:30:00,Excel,Report Generation,65,TRUE
+E017,Finance,2025-10-16 13:00:00,SAP,Account Reconciliation,75,TRUE
+E017,Finance,2025-10-16 14:30:00,Teams,Meetings,60,FALSE
+E017,Finance,2025-10-17 09:00:00,Tally,Invoice Processing,85,TRUE
+E017,Finance,2025-10-17 10:30:00,Gmail,Email Triage,40,TRUE
+E017,Finance,2025-10-17 11:30:00,Excel,Data Entry,50,TRUE
+E017,Finance,2025-10-17 13:30:00,SAP,Account Reconciliation,80,TRUE
+E017,Finance,2025-10-18 09:00:00,Tally,Invoice Processing,75,TRUE
+E017,Finance,2025-10-18 10:30:00,Excel,Report Generation,55,TRUE
+E017,Finance,2025-10-18 13:00:00,Gmail,Email Triage,35,TRUE
+E017,Finance,2025-10-21 09:00:00,Tally,Invoice Processing,90,TRUE
+E017,Finance,2025-10-21 10:45:00,Excel,Account Reconciliation,70,TRUE
+E017,Finance,2025-10-21 13:00:00,SAP,Data Entry,45,TRUE
+E017,Finance,2025-10-21 14:30:00,Teams,Meetings,60,FALSE
+E017,Finance,2025-10-22 09:00:00,Tally,Invoice Processing,80,TRUE
+E017,Finance,2025-10-22 11:00:00,Excel,Account Reconciliation,85,TRUE
+E017,Finance,2025-10-22 13:30:00,Gmail,Email Triage,30,TRUE
+E017,Finance,2025-10-22 14:30:00,SAP,Data Entry,55,TRUE
+E017,Finance,2025-10-23 09:00:00,Tally,Invoice Processing,75,TRUE
+E017,Finance,2025-10-23 10:30:00,Excel,Report Generation,60,TRUE
+E017,Finance,2025-10-23 13:00:00,SAP,Account Reconciliation,90,TRUE
+E017,Finance,2025-10-24 09:00:00,Tally,Invoice Processing,85,TRUE
+E017,Finance,2025-10-24 11:00:00,Gmail,Email Triage,40,TRUE
+E017,Finance,2025-10-24 13:00:00,Excel,Data Entry,50,TRUE
+E017,Finance,2025-10-25 09:00:00,Tally,Invoice Processing,70,TRUE
+E017,Finance,2025-10-25 10:30:00,Excel,Account Reconciliation,75,TRUE
+E017,Finance,2025-10-25 13:00:00,Teams,Meetings,45,FALSE
+E017,Finance,2025-10-28 09:00:00,Tally,Invoice Processing,80,TRUE
+E017,Finance,2025-10-28 10:30:00,Gmail,Email Triage,35,TRUE
+E017,Finance,2025-10-28 11:30:00,SAP,Data Entry,60,TRUE
+E017,Finance,2025-10-28 13:30:00,Excel,Account Reconciliation,85,TRUE
+E017,Finance,2025-10-29 09:00:00,Tally,Invoice Processing,90,TRUE
+E017,Finance,2025-10-29 11:00:00,Excel,Report Generation,55,TRUE
+E017,Finance,2025-10-29 13:30:00,Gmail,Email Triage,30,TRUE
+E017,Finance,2025-10-30 09:00:00,Tally,Invoice Processing,75,TRUE
+E017,Finance,2025-10-30 10:30:00,SAP,Account Reconciliation,80,TRUE
+E017,Finance,2025-10-30 13:00:00,Teams,Meetings,60,FALSE
+E017,Finance,2025-10-31 09:00:00,Tally,Invoice Processing,85,TRUE
+E017,Finance,2025-10-31 11:00:00,Excel,Data Entry,50,TRUE
+E017,Finance,2025-10-31 13:00:00,Gmail,Email Triage,40,TRUE
+E017,Finance,2025-11-01 09:00:00,Tally,Invoice Processing,70,TRUE
+E017,Finance,2025-11-01 10:30:00,Excel,Account Reconciliation,75,TRUE
+E017,Finance,2025-11-01 13:00:00,SAP,Report Generation,65,TRUE
+E016,HR,2025-10-14 09:00:00,Workday,Onboarding Forms,60,TRUE
+E016,HR,2025-10-14 10:30:00,Gmail,Email Triage,45,TRUE
+E016,HR,2025-10-14 12:00:00,Excel,Report Generation,55,FALSE
+E016,HR,2025-10-14 14:00:00,Zoom,Meetings,60,FALSE
+E016,HR,2025-10-15 09:00:00,Workday,Onboarding Forms,65,TRUE
+E016,HR,2025-10-15 11:00:00,Gmail,Email Triage,40,TRUE
+E016,HR,2025-10-15 13:00:00,Excel,Data Entry,50,TRUE
+E016,HR,2025-10-16 09:00:00,Workday,Onboarding Forms,70,TRUE
+E016,HR,2025-10-16 11:00:00,Gmail,Email Triage,35,TRUE
+E016,HR,2025-10-16 13:30:00,Excel,Report Generation,60,FALSE
+E016,HR,2025-10-17 09:00:00,Workday,Onboarding Forms,55,TRUE
+E016,HR,2025-10-17 11:00:00,Gmail,Email Triage,45,TRUE
+E016,HR,2025-10-17 13:00:00,Zoom,Meetings,45,FALSE
+E016,HR,2025-10-21 09:00:00,Workday,Onboarding Forms,65,TRUE
+E016,HR,2025-10-21 10:30:00,Gmail,Email Triage,40,TRUE
+E016,HR,2025-10-21 13:00:00,Excel,Data Entry,55,TRUE
+E016,HR,2025-10-22 09:00:00,Workday,Onboarding Forms,70,TRUE
+E016,HR,2025-10-22 11:00:00,Gmail,Email Triage,35,TRUE
+E016,HR,2025-10-28 09:00:00,Workday,Onboarding Forms,60,TRUE
+E016,HR,2025-10-28 10:30:00,Gmail,Email Triage,45,TRUE
+E016,HR,2025-10-28 13:00:00,Excel,Report Generation,50,FALSE
