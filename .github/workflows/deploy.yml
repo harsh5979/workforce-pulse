@@ -63,5 +63,8 @@ jobs:
             echo "🗄️ Running database migrations..."
             docker compose exec -T backend npm run db:migrate || echo "Migrations complete or skipped."
 
+            echo "🌱 Seeding database with admin account..."
+            docker compose exec -T backend npm run db:seed || echo "Seeding complete or skipped."
+
             echo "✅ Deployment completed successfully!"
           ENDSSH
