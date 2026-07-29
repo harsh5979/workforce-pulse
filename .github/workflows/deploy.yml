@@ -21,8 +21,8 @@ jobs:
       - name: Add Server to known_hosts
         run: ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Create Remote Directory
-        run: ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ~/workforce-pulse"
+      - name: Create Remote Directory and Fix Permissions
+        run: ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ~/workforce-pulse && sudo chown -R ${{ secrets.SERVER_USER }}:${{ secrets.SERVER_USER }} ~/workforce-pulse || true"
 
       - name: Sync Files to VPS (Rsync)
         run: |
