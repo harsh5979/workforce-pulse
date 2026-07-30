@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { env } from '../../config/env';
-import { buildCompactAIPrompt } from './context-builder';
+import { chatbotTools } from './tools';
+import { executeTool } from './tool-handlers';
 import { addMessage, getHistory, createSession, getSession } from './conversation.store';
 import { logger } from '../../utils/logger';
 import { Response } from 'express';
@@ -51,18 +52,14 @@ const MODELS = isGroq ? [
   'nvidia/nemotron-3-super-120b-a12b:free', // Last resort — large model
 ];
 
-function buildSystemPrompt(contextTableText: string): string {
+function buildSystemPrompt(): string {
   return `You are WorkforcePulse AI, an executive data analyst assistant for a workforce productivity platform.
 
-You have access to the LIVE workforce analytics dataset formatted in compact tabular format below:
-
-<DATA_CONTEXT>
-${contextTableText}
-</DATA_CONTEXT>
+You have access to safe, real-time database tools to fetch operational telemetry. You should use them whenever a user asks about employees, departments, task categories, trends, or anomalies.
 
 STRICT RULES:
-1. ONLY answer using exact facts from the DATA_CONTEXT above. Never invent or round numbers inaccurately.
-2. ALWAYS cite exact figures and IDs when making quantitative claims (e.g., E014 Arun Kumar: 21.6h Email Triage, ₹15,985/mo).
+1. ONLY answer using exact facts retrieved from your database tools. Never invent or round numbers inaccurately.
+2. ALWAYS cite exact figures and IDs when making quantitative claims (e.g., E014 Arun Kumar: 21.6h, ₹15,985/mo).
 3. Support follow-up questions cleanly with multi-turn context.
 4. FORMAT RULES — follow these exactly:
    - For ANY comparison, ranking, or list of 2+ employees/departments/tasks: output a MARKDOWN TABLE using pipe syntax (| Col | Col |). Example:
@@ -72,7 +69,7 @@ STRICT RULES:
    - For single-entity answers: use bullet points with bold labels (e.g. **Employee:** Arun Kumar).
    - Use bold (**text**) for key names, figures, and labels.
    - Keep responses concise and executive-grade. No filler text.
-5. OUT-OF-SCOPE OR NO RECORD QUERIES: Never give a blunt or robotic "not present in dataset" response. If an inquiry targets an entity, date range, or filter where zero matching telemetry logs exist, respond in a formal, courteous, and professional executive tone. For example: "Based on our active PostgreSQL workforce telemetry and HRMS schemas, no recorded activity logs currently match these criteria." Then gracefully offer a related analytical insight from the available dataset.
+5. OUT-OF-SCOPE OR NO RECORD QUERIES: Never give a blunt or robotic "not present in dataset" response. If an inquiry targets an entity, date range, or filter where zero matching telemetry logs exist, respond in a formal, courteous, and professional executive tone. For example: "Based on our active PostgreSQL workforce telemetry and HRMS schemas, no recorded activity logs currently match these criteria." Then gracefully offer a related analytical insight by querying other available tools.
 6. When evaluating automation ROI or executive summaries, cite priority index scores and INR savings potential.
 7. Never output raw JSON. Only use Markdown (tables, bullets, bold).`;
 }
@@ -88,17 +85,14 @@ export async function streamAIChat(
     sid = createSession();
   }
 
-  // Build ultra-compact grounded context (reduces tokens by ~85%)
-  const contextText = await buildCompactAIPrompt();
-
-  // Get conversation history — cap at 4 turns (saves ~200 tokens vs 6 turns)
+  // Get conversation history — cap at 4 turns
   const history = getHistory(sid).filter(m => m.role !== 'system').slice(-4);
 
   // Add user message to history
   addMessage(sid, { role: 'user', content: userMessage });
 
-  const messages: OpenAI.ChatCompletionMessageParam[] = [
-    { role: 'system', content: buildSystemPrompt(contextText) },
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: 'system', content: buildSystemPrompt() },
     ...history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
     { role: 'user', content: userMessage },
   ];
@@ -109,25 +103,92 @@ export async function streamAIChat(
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Session-Id', sid);
 
-  let fullResponse = '';
+  let firstResponse: any = null;
   let modelUsed = '';
-  let allRateLimited = true; // track if every failure was a 429
+  let allRateLimited = true;
 
-  // Try models in priority order
+  // Step 1: Request tool execution intent
   for (let i = 0; i < MODELS.length; i++) {
     const model = MODELS[i];
     try {
-      logger.info(`Attempting ${isGroq ? 'Groq' : 'OpenRouter'} model: ${model}`);
-      const stream = await openai.chat.completions.create({
+      logger.info(`[Step 1] Attempting tool call intent resolution using model: ${model}`);
+      const completion = await openai.chat.completions.create({
         model,
         messages,
-        stream: true,
-        max_tokens: 512,  // Workforce answers are concise — 512 saves tokens & speeds up response
-        temperature: 0.15, // Lower = more deterministic, faster convergence on factual answers
+        tools: chatbotTools,
+        tool_choice: 'auto',
+        temperature: 0.1,
       });
 
+      firstResponse = completion.choices[0].message;
       modelUsed = model;
-      allRateLimited = false; // at least one model worked
+      allRateLimited = false;
+      break; // success
+    } catch (err: any) {
+      const is429 = err.status === 429 || err.message?.includes('429') || err.message?.includes('rate');
+      logger.warn(`Model ${model} failed intent resolution${is429 ? ' (429 rate-limited)' : ''}: ${err.message}`);
+      if (!is429) allRateLimited = false;
+
+      if (i === MODELS.length - 1) {
+        if (allRateLimited) {
+          res.write(`data: ${JSON.stringify({ rateLimited: true })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ error: `All free models are temporarily unavailable.` })}\n\n`);
+        }
+        res.end();
+        return '';
+      }
+      continue;
+    }
+  }
+
+  if (!firstResponse) {
+    res.end();
+    return '';
+  }
+
+  // Step 2: If model requested a tool call, execute it
+  const toolCalls = firstResponse.tool_calls;
+  if (toolCalls && toolCalls.length > 0) {
+    logger.info(`LLM requested ${toolCalls.length} tool calls using ${modelUsed}`);
+    
+    // Add assistant's tool intent message to conversation list
+    messages.push(firstResponse);
+
+    for (const call of toolCalls) {
+      try {
+        const args = JSON.parse(call.function.arguments);
+        logger.info(`Running tool "${call.function.name}" with args: ${JSON.stringify(args)}`);
+        
+        const result = await executeTool(call.function.name, args);
+        
+        // Append tool result to context
+        messages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: JSON.stringify(result),
+        } as any);
+      } catch (err: any) {
+        logger.error(`Error executing tool "${call.function.name}": ${err.message}`);
+        messages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: JSON.stringify({ error: err.message }),
+        } as any);
+      }
+    }
+
+    // Step 3: Stream final answer to user
+    let fullResponse = '';
+    try {
+      logger.info(`[Step 3] Streaming final response using model: ${modelUsed}`);
+      const stream = await openai.chat.completions.create({
+        model: modelUsed,
+        messages,
+        stream: true,
+        max_tokens: 1024,
+        temperature: 0.15,
+      });
 
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta?.content ?? '';
@@ -137,51 +198,35 @@ export async function streamAIChat(
         }
       }
 
-      // If model returned an empty body, treat it as a failure and try next model
-      if (!fullResponse) {
-        logger.warn(`Model ${model} returned empty content — falling through to next model.`);
-        modelUsed = '';
-        allRateLimited = false;
-        if (i === MODELS.length - 1) {
-          const providerName = isGroq ? 'Groq' : 'OpenRouter';
-          res.write(`data: ${JSON.stringify({ error: `All free ${providerName} AI models returned empty responses. Please try again shortly.` })}\n\n`);
-          res.end();
-          return '';
-        }
-        continue; // try next model
+      if (fullResponse) {
+        addMessage(sid, { role: 'assistant', content: fullResponse });
       }
 
-      break; // success — stop trying models
+      res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: modelUsed })}\n\n`);
+      res.end();
+      return fullResponse;
     } catch (err: any) {
-      const is429 = err.status === 429 || err.message?.includes('429') || err.message?.includes('rate');
-      logger.warn(`Model ${model} failed${is429 ? ' (429 rate-limited)' : ''}: ${err.message}`);
-
-      if (!is429) allRateLimited = false; // non-429 failure — not a rate limit
-
-      if (i === MODELS.length - 1) {
-        // All models exhausted
-        if (allRateLimited) {
-          // Every model returned 429 — tell the frontend to show rate-limit UI
-          res.write(`data: ${JSON.stringify({ rateLimited: true })}\n\n`);
-        } else {
-          const providerName = isGroq ? 'Groq' : 'OpenRouter';
-          res.write(`data: ${JSON.stringify({ error: `All free ${providerName} AI models are temporarily unavailable. Please try again shortly.` })}\n\n`);
-        }
-        res.end();
-        return '';
-      }
-      // Try next model
-      continue;
+      logger.error(`Failed to stream final response: ${err.message}`);
+      res.write(`data: ${JSON.stringify({ error: `Connection failed during response streaming.` })}\n\n`);
+      res.end();
+      return '';
     }
+  } else {
+    // If no tool was called, send the direct response of the first call
+    const content = firstResponse.content || 'I am ready to help you analyze your workforce data. Please let me know how I can assist you.';
+    logger.info(`Direct response generated by ${modelUsed} (no tool called)`);
+    
+    // Simulate streaming for a natural UX or write the entire message in one block
+    const words = content.split(/(\s+)/);
+    for (const word of words) {
+      res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
+      // Tiny delay to make the streaming text effect visible
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+
+    addMessage(sid, { role: 'assistant', content });
+    res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: modelUsed })}\n\n`);
+    res.end();
+    return content;
   }
-
-  // Store assistant response in history
-  if (fullResponse) {
-    addMessage(sid, { role: 'assistant', content: fullResponse });
-  }
-
-  res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: modelUsed })}\n\n`);
-  res.end();
-
-  return fullResponse;
 }
