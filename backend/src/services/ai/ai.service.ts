@@ -110,9 +110,10 @@ export async function streamAIChat(
     
     // Set up SSE headers immediately
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Session-Id', sid);
+    res.setHeader('X-Accel-Buffering', 'no');
 
     // Stream the denial message word-by-word for a smooth streaming UX
     const words = denialContent.split(/(\s+)/);
@@ -135,9 +136,10 @@ export async function streamAIChat(
 
   // Set up SSE headers
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Session-Id', sid);
+  res.setHeader('X-Accel-Buffering', 'no');
 
   let firstResponse: any = null;
   let modelUsed = '';
