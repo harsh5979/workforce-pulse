@@ -42,6 +42,7 @@ jobs:
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           DATABASE_URL=postgresql://postgres:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/workforce
           OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
           NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}
           NODE_ENV=production
