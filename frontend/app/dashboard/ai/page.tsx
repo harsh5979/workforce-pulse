@@ -613,10 +613,10 @@ export default function AIPage() {
         </div>
 
         {/* Input Bar — Always Visible & Sticky at Bottom on Phones */}
-        <div className="px-3 sm:px-6 py-2.5 sm:py-3">
+        <div className="px-3 sm:px-6 py-3 sm:py-4">
           <form
             onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2.5"
           >
             <input
               type="text"
@@ -624,14 +624,14 @@ export default function AIPage() {
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
               placeholder="Ask about repetitive tasks, automation ROI..."
-              className="flex-1 bg-slate-950/80 border border-border/80 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all font-sans shadow-inner min-w-0"
+              className="flex-1 bg-slate-950/90 border border-border/80 rounded-xl px-4 py-3.5 sm:px-5 sm:py-4 text-sm sm:text-base text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all font-sans shadow-inner min-w-0"
             />
             <button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className="p-2.5 sm:p-3 rounded-xl bg-gradient-to-r from-primary to-emerald-500 text-slate-950 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 shrink-0 hover:scale-[1.02] flex items-center justify-center"
+              className="p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-primary to-emerald-500 text-slate-950 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 shrink-0 hover:scale-[1.02] flex items-center justify-center"
             >
-              <Send className="w-4 h-4 text-slate-950 fill-slate-950" />
+              <Send className="w-5 h-5 text-slate-950 fill-slate-950" />
             </button>
           </form>
         </div>

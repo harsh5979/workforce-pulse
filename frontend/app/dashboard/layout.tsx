@@ -14,7 +14,7 @@ export default function DashboardLayout({
   const isAiPage = pathname === '/dashboard/ai';
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-full overflow-hidden bg-background">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar />

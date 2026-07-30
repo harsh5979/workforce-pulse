@@ -57,7 +57,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen bg-background antialiased">
+      <body className="h-[100dvh] overflow-hidden bg-background antialiased">
         <QueryProvider>
           <AuthProvider>
             {children}
