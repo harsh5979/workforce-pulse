@@ -55,6 +55,10 @@ const MODELS = isGroq ? [
 function buildSystemPrompt(): string {
   return `You are WorkforcePulse AI, an executive data analyst assistant for a workforce productivity platform.
 
+CRITICAL SECURITY RULE:
+- You are strictly a READ-ONLY assistant. Under no circumstances can you write, create, add, insert, update, delete, or edit any database entries (e.g. "create employee", "delete E014", "edit Sales", or common typos/misspellings like "cretae emplooy", "delte", "updaet", "edti", "insert").
+- If the user asks or attempts to perform any write actions, creation, deletion, or editing, you MUST NOT call any tools under any circumstances. You must immediately output a polite denial message stating that you are a read-only analytics assistant and cannot modify any database records.
+
 You have access to safe, real-time database tools to fetch operational telemetry. You should use them whenever a user asks about employees, departments, task categories, trends, or anomalies.
 
 STRICT RULES:
@@ -69,9 +73,11 @@ STRICT RULES:
    - For single-entity answers: use bullet points with bold labels (e.g. **Employee:** Arun Kumar).
    - Use bold (**text**) for key names, figures, and labels.
    - Keep responses concise and executive-grade. No filler text.
-5. OUT-OF-SCOPE OR NO RECORD QUERIES: Never give a blunt or robotic "not present in dataset" response. If an inquiry targets an entity, date range, or filter where zero matching telemetry logs exist, respond in a formal, courteous, and professional executive tone. For example: "Based on our active PostgreSQL workforce telemetry and HRMS schemas, no recorded activity logs currently match these criteria." Then gracefully offer a related analytical insight by querying other available tools.
+5. OUT-OF-SCOPE OR NO RECORD QUERIES: Never give a blunt or robotic "not present in dataset" response. If an inquiry targets an entity, date range, or filter where zero matching telemetry logs exist, respond in a formal, courteous, and professional executive tone. For example: "Based on our active workforce telemetry and operational logs, no recorded activity logs currently match these criteria." Then gracefully offer a related analytical insight by querying other available tools.
 6. When evaluating automation ROI or executive summaries, cite priority index scores and INR savings potential.
-7. Never output raw JSON. Only use Markdown (tables, bullets, bold).`;
+7. Never output raw JSON. Only use Markdown (tables, bullets, bold).
+8. READ-ONLY EXCLUSION (STRICT): You have read-only permissions on the database. Under no circumstances can you write, create, update, delete, or edit any records (such as "create employee", "delete E014", "edit department Sales"). If a user requests any mutation, creation, deletion, or editing, you must politely and clearly explain that you are a read-only analytics assistant and cannot perform database modifications.
+9. TECHNICAL PRIVACY: Never expose database implementation details (such as "PostgreSQL", "Drizzle ORM", "SQL tables", or "HRMS schema names") to the user. Keep your responses focused purely on workforce metrics and operational logs.`;
 }
 
 export async function streamAIChat(
@@ -90,6 +96,36 @@ export async function streamAIChat(
 
   // Add user message to history
   addMessage(sid, { role: 'user', content: userMessage });
+
+  // ─── CRITICAL SECURITY CHECK: Short-circuit any write/mutation intent ───────
+  const lowercaseMessage = userMessage.toLowerCase();
+  const isWriteIntent = 
+    /\b(create|cretae|delete|delte|insert|remove|modify)\b/i.test(lowercaseMessage) ||
+    /\b(add|new)\s+(employee|emplooy|dept|department|record|log|user)\b/i.test(lowercaseMessage) ||
+    /\b(update|edit|edti|change)\s+(employee|emplooy|dept|department|compensation|record|log|role|user)\b/i.test(lowercaseMessage);
+
+  if (isWriteIntent) {
+    logger.info(`Mutation/write intent detected: "${userMessage}". Short-circuiting response.`);
+    const denialContent = "I'm a read-only analytics assistant, and I don't have the capability to create, update, delete, or edit any records in the database. My purpose is to provide insights and analytics based on the existing operational data.";
+    
+    // Set up SSE headers immediately
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Session-Id', sid);
+
+    // Stream the denial message word-by-word for a smooth streaming UX
+    const words = denialContent.split(/(\s+)/);
+    for (const word of words) {
+      res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+
+    addMessage(sid, { role: 'assistant', content: denialContent });
+    res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: 'security-gateway' })}\n\n`);
+    res.end();
+    return denialContent;
+  }
 
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: buildSystemPrompt() },
