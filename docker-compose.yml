@@ -29,6 +29,7 @@ services:
       # Tells the backend what the frontend origin is for CORS
       SITE_URL: https://workforce.iomd.site
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-sk-or-v1-free-placeholder}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     ports:
       # Bind to localhost so Nginx can proxy to it safely
       - "127.0.0.1:5000:5000"

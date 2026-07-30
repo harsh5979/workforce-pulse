@@ -21,6 +21,9 @@ import authRoutes      from './routes/auth.routes';
 
 const app = express();
 
+// Trust reverse proxy (Nginx) for accurate IP rate limiting
+app.set('trust proxy', 1);
+
 // ─── Security & Logging ───────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
