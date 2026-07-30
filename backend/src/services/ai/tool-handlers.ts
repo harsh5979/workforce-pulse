@@ -23,6 +23,7 @@ export async function executeTool(name: string, args: any) {
 async function handleGetEmployeeAnalytics(args: {
   employeeId?: string;
   fullName?: string;
+  department?: string;
   page?: number;
   limit?: number;
 }) {
@@ -128,8 +129,8 @@ async function handleGetEmployeeAnalytics(args: {
     return await handleGetEmployeeAnalytics({ employeeId: matches[0].employeeId });
   }
 
-  // Case C: List employees (Paginated)
-  const list = await db
+  // Case C: List employees (Paginated with optional Department Filter)
+  let query = db
     .select({
       employeeId: employees.employeeId,
       fullName: employees.fullName,
@@ -139,16 +140,28 @@ async function handleGetEmployeeAnalytics(args: {
       repMins: sql<number>`SUM(CASE WHEN ${activityLogs.isRepetitive} THEN CAST(${activityLogs.durationMin} AS DECIMAL) ELSE 0 END)`,
     })
     .from(employees)
-    .leftJoin(activityLogs, eq(employees.employeeId, activityLogs.employeeId))
+    .leftJoin(activityLogs, eq(employees.employeeId, activityLogs.employeeId));
+
+  if (args.department?.trim()) {
+    query = query.where(eq(employees.department, args.department.trim() as any)) as any;
+  }
+
+  const list = await query
     .groupBy(employees.employeeId, employees.fullName, employees.department, employees.role)
     .orderBy(sql`SUM(CASE WHEN ${activityLogs.isRepetitive} THEN CAST(${activityLogs.durationMin} AS DECIMAL) ELSE 0 END) DESC`)
     .limit(limit)
     .offset(offset);
 
   // Total count query
-  const [totalRes] = await db
+  let countQuery = db
     .select({ count: sql<number>`COUNT(DISTINCT ${employees.employeeId})` })
     .from(employees);
+
+  if (args.department?.trim()) {
+    countQuery = countQuery.where(eq(employees.department, args.department.trim() as any)) as any;
+  }
+
+  const [totalRes] = await countQuery;
 
   const totalCount = Number(totalRes?.count ?? 0);
   const hasMore = offset + limit < totalCount;

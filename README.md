@@ -1,264 +1,131 @@
 # Workforce Pulse
 
-> **Engineering Challenge** — Workforce Analytics Dashboard
-> Answering the COO question: *"Where are we wasting the most time and money, and what should we automate first?"*
+Workforce Pulse is an enterprise-grade workforce analytics dashboard designed to help operations leaders and executives answer the critical business question:
+> **"Where are we wasting the most time and money, and what should we automate first?"**
+
+The platform ingests raw activity logs and HRMS employee databases, normalizes and joins the data, calculates key productivity metrics, identifies operational anomalies, and provides an interactive AI copilot to query database analytics securely.
+
+---
 
 ## 🔗 Live URLs
 
-- **Frontend Application:** [https://workforce.iomd.site](https://workforce.iomd.site)
-- **Backend API:** [https://workforce.api.iomd.site](https://workforce.api.iomd.site)
+- **Frontend Web Dashboard:** [https://workforce.iomd.site](https://workforce.iomd.site)
+- **Backend Analytics API:** [https://workforce.api.iomd.site](https://workforce.api.iomd.site)
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## 🖥️ Platform Features (How they work)
 
-### Prerequisites
-- Node.js 20+
-- Docker + Docker Compose
-- npm
+Workforce Pulse is split into seven dedicated sections, each serving a specific analytical purpose:
 
-### 1. Clone and setup
+### 1. Overview (Executive Dashboard)
+* **What it is:** A high-level visual summary of the organization's entire workforce output.
+* **Key Metrics:** Displays total active headcount, total hours tracked, total repetitive hours, and **Recoverable Monthly Cost** (the money currently spent on repetitive tasks that could be automated).
+* **Visual charts:** Includes department comparisons (headcount vs. cost) and a breakdown of repetitive task share by department.
+
+### 2. Categories (Task & Automation Analysis)
+* **What it is:** A dashboard focusing on task categories (e.g., Email Triage, Meetings, CRM Updates) to identify automation candidates.
+* **Automation Priority Score:** Calculates a custom score from `0.0` to `1.0` for each task category using volume, repetitive share, and employee concentration. Higher scores represent higher ROI automation opportunities.
+* **INR Savings Potential:** Lists the exact monthly financial savings potential if a category is automated.
+
+### 3. Employees (Operational Telemetry)
+* **What it is:** A directory listing of all employees with individual performance cards.
+* **Profiles:** Displays each employee's department, role, total logged hours, repetitive work share (%), and estimated hourly rate.
+* **Category Breakdown:** Shows a breakdown of the specific tasks they spend the most time on.
+
+### 4. Trends (WoW Performance Analysis)
+* **What it is:** A week-over-week trend analyzer.
+* **Repetitive Work Share:** Tracks whether the share of repetitive tasks is increasing or decreasing over time across different departments.
+* **Productivity Logs:** Visualizes total hours logged per week to identify seasonal productivity trends.
+
+### 5. Anomalies (Outlier & Statistical Flags)
+* **What it is:** An automated auditor that flags unusual activity using statistics.
+* **Z-Score Detection:** Calculates a Z-score for weekly employee hours compared to their department average. If an employee logs hours that deviate significantly from their peers ($|Z| > 2.0$), they are flagged.
+* **Rule Flags:** Also flags departments with over 80% repetitive work, employees with 0 tasks logged in an active week, and sudden week-over-week repetitive share spikes (>30%).
+
+### 6. Data & CSV Import (Data Pipeline)
+* **What it is:** The ingestion gateway for the platform.
+* **Normalizer:** Ingests raw `activity_logs.csv` and `employees.json`, normalizes dirty fields (different date formats, boolean spellings, casing inconsistencies), runs duplicate checks, and writes clean records to PostgreSQL.
+
+### 7. AI Copilot (Secure Analytics Assistant)
+* **What it is:** A grounded chatbot that lets managers query secure natural-language database questions.
+* **Policy A Security (Strict Data-Only):** The AI can only answer questions that translate directly into database filters and tool queries (e.g. *"Who in finance is spending the most time on email triage?"*). It is strictly forbidden from writing software code, scripting, or responding to general-knowledge chat queries.
+
+---
+
+## 🚀 Local Development Setup Guide
+
+This guide walks you through setting up the Workforce Pulse workspace on your local computer.
+
+### Prerequisites (What you need installed)
+1. **Node.js (v20+):** The JavaScript runtime environment used to build and run our frontend and backend servers.
+2. **Docker & Docker Compose:** A containerization tool. It downloads, configures, and runs PostgreSQL, the frontend, and the backend inside isolated environments so you do not need to install databases manually on your local system.
+
+---
+
+### Step 1: Clone and Environment Setup
+Open your terminal and clone the repository to your computer:
 ```bash
 git clone https://github.com/yourusername/workforce-pulse.git
 cd workforce-pulse
-cp .env.example .env
-# Edit .env with your values
 ```
 
-### 2. Add data files
-Place your files in `/data/`:
-```
-data/
-├── activity_logs.csv
-└── employees.json
-```
-
-### 3. Start all services
+Create a local environment variables file by copying the template:
 ```bash
-docker compose -f docker-compose.dev.yml up
+cp .env.example .env
+```
+Open the `.env` file and configure your API keys:
+* **`GROQ_API_KEY`**: Obtain a free API key from [Groq Console](https://console.groq.com/) for ultra-fast LPU chat streams.
+* **`OPENROUTER_API_KEY`**: Obtain an API key from [OpenRouter](https://openrouter.ai/) to use as a fallback provider.
+
+---
+
+### Step 2: Add Data Files
+For the ingestion pipeline to run, place your raw CSV and JSON data files inside the `/data/` folder in the project root:
+```
+workforce-pulse/
+└── data/
+    ├── activity_logs.csv
+    └── employees.json
 ```
 
-### 4. Run ingestion
+---
+
+### Step 3: Start Services via Docker Compose
+Run the following command to download, build, and start the local developer containers:
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+* **What happens under the hood:** Docker Compose downloads the PostgreSQL 16 image and spins up three services:
+  1. `postgres`: Reclaims port `5432` to run the relational database.
+  2. `backend`: A Node.js container compiling TypeScript on save and running on port `5000`.
+  3. `frontend`: A Next.js container listening on port `3000`.
+
+---
+
+### Step 4: Run Database Ingestion
+With the containers running, trigger the data cleaning and ingestion script:
 ```bash
 curl -X POST http://localhost:5000/api/ingest
 ```
+* **What happens under the hood:** The backend reads the dirty raw files in `/data/`, normalizes date strings, fixes capitalization, applies join conflict logic, and inserts the normalized records into the PostgreSQL tables.
 
-### 5. Open the dashboard
-```
-http://localhost:3000
-```
+Now, open **`http://localhost:3000`** in your browser to view the active local dashboard!
 
 ---
 
-## 🌍 Production Deployment
+## 🛠️ Technology Stack & Libraries Used
 
-Once the configuration and Nginx proxy are prepared on your server, simply run:
-
-```bash
-docker compose up --build -d
-```
-This builds and launches the production-optimized Next.js and Node.js containers in detached mode.
-
----
-
-## 📁 Project Structure
-
-```
-workforce-pulse/
-├── frontend/          Next.js 14 App Router (UI)
-├── backend/           Node.js + Express API
-├── docs/              Technical documentation
-├── data/              Source data files (gitignored if sensitive)
-├── .github/workflows/ GitHub Actions CI/CD
-├── docker-compose.yml Production stack
-├── nginx.conf         Reverse proxy config
-└── README.md          This file
-```
-
----
-
-## 📊 Data Sources
-
-### `activity_logs.csv`
-~540 rows of employee activity logs over 4 weeks.
-| Column | Type | Notes |
-|--------|------|-------|
-| `employee_id` | string | 15 employees, some unknown IDs |
-| `department` | string | Sales, Finance, Operations, CS, HR, Marketing |
-| `timestamp` | datetime | Multiple formats — ISO, slash-style, mixed precision |
-| `app_used` | string | Inconsistent casing, whitespace padding |
-| `task_category` | string | Casing varies, abbreviations, missing values |
-| `duration_minutes` | number | Negatives, zeros, outliers, blanks present |
-| `is_repetitive` | boolean | 11 different spellings: TRUE/true/1/yes/Yes/no/empty/NA |
-
-### `employees.json`
-HRMS export — one record per employee, wrapped in `data.employees`.
-| Field | Notes |
-|-------|-------|
-| `employee_id` / `EmployeeID` | Casing varies |
-| `department` / `Dept` | Key name varies |
-| `role` or `meta.role` | Flat or nested |
-| `compensation` | Annual INR, hourly INR, or LPA (lakhs per annum) |
-| `working_hours` | `"9-18"` string or `{"start":"09:00","end":"18:00"}` object |
-
----
-
-## 🧹 Assumptions
-
-### activity_logs.csv
-- **Negative durations:** Data entry errors → set to 0, flagged in ingestion log
-- **Duration > 960 min (16h):** Treated as outliers → flagged but included, not dropped
-- **Blank/zero duration:** Dropped (no signal value)
-- **`is_repetitive` blank/NA/empty:** Conservative → treated as `false`
-- **Timestamps without timezone:** Assumed IST (UTC+5:30)
-- **Duplicate rows (exact):** Dropped, counted in ingestion stats
-- **Unknown employee IDs:** Included with `has_metadata = false`
-
-### employees.json
-- **Duplicate `employee_id`:** Kept the record with `status: active`; flagged the duplicate
-- **Employee in activity but not HRMS:** Included with `has_metadata = false`; INR calculation excluded for this employee
-- **Employee in HRMS but no activity:** Included with `has_activity = false`; shown in UI panel
-- **Terminated employee:** Activity before `terminated_on` is counted; flagged in employee profile
-- **Missing `department`:** Inferred from activity logs if available; otherwise `"Unknown"`
-
----
-
-## 🔗 Join Strategy
-
-```
-LEFT JOIN activity_logs ON employees
-WHERE LOWER(TRIM(activity.employee_id)) = LOWER(TRIM(hrms.employee_id))
-```
-
-**Conflict resolution:**
-1. `employee_id` normalized (lowercase, trimmed) before join
-2. Duplicate HRMS record: active record wins; if both active, keep first-seen, flag both
-3. Unmatched activity rows: preserved, flagged as `has_metadata = false`
-4. Compensation conflicts on duplicates: use the non-zero, non-null value
-
----
-
-## 📐 Formulas
-
-### Hours Recoverable / Month
-```
-dataset_days = (max_timestamp - min_timestamp) in days
-
-hours_recoverable = SUM(duration_min WHERE is_repetitive = true) / 60
-                  × (30 / dataset_days)
-```
-
-### INR Recoverable / Month
-```
-For each employee e with metadata:
-  hourly_rate_e    = comp_annual_inr_e / (260 × working_hours_day_e)
-  rep_hours_e      = SUM(duration_min WHERE employee_id = e AND is_repetitive) / 60
-  monthly_rep_e    = rep_hours_e × (30 / dataset_days)
-  inr_recoverable_e = monthly_rep_e × hourly_rate_e
-
-INR_recoverable = SUM(inr_recoverable_e) for all e with metadata
-```
-
-**Compensation normalization:**
-```
-annual_inr source  → use directly
-hourly_inr source  → hourly × 8 × 260
-LPA source         → lpa × 100,000
-```
-
-### Automation Priority Score
-```
-For each task category c:
-  volume_norm_c       = total_hours_c / max_category_hours_across_all
-  rep_share_c         = repetitive_hours_c / total_hours_c
-  emp_concentration_c = count(distinct employees doing c) / total_employees
-
-  score_c = (volume_norm_c × 0.40)
-           + (rep_share_c × 0.40)
-           + (emp_concentration_c × 0.20)
-```
-
----
-
-## 🚨 Anomaly Detection
-
-**Algorithm:** Z-score on employee-level total hours per week, grouped by department.
-
-```
-For each (employee, week) pair:
-  dept_mean = mean(total_hours) for all employees in same dept in same week
-  dept_std  = std_dev(total_hours) for same group
-  z_score   = (employee_hours - dept_mean) / dept_std
-  
-  Flag if |z_score| > 2.0
-```
-
-**Additional rule-based flags:**
-- Department with > 80% repetitive task share
-- Employee with 0 tasks logged in any week they appear
-- Week-over-week repetitive share increase > 30 percentage points
-
-Each anomaly card shows: *what it is*, *why it's flagged*, *the exact numbers*.
-
----
-
-## ✂️ What Was Cut (and Why)
-
-| Feature | Reason Cut |
-|---------|-----------|
-| Real-time activity updates | Data is a static snapshot; polling adds complexity without value |
-| User authentication | Single-user COO dashboard; multi-tenant not in scope |
-| Historical month-over-month | Only 4 weeks of data; insufficient for longer trends |
-| Natural language → SQL | Too high hallucination risk; used structured context injection instead |
-| Slack/email alerts | Out of scope for this challenge |
-
----
-
-## 🔮 What We'd Build Next (2 More Days)
-
-1. **Alert subscriptions** — Slack webhook when a new anomaly is detected each week
-2. **Month-over-month comparison** — after accumulating 2+ months of data
-3. **Export to Google Slides** — for leadership all-hands presentations
-4. **Role-based access** — managers see only their department; COO sees all
-5. **AI suggestion execution** — "Automate this" button that drafts an RPA brief
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 14 (App Router, Server + Client Components) |
-| UI Components | Shadcn/ui + Tailwind CSS |
-| Charts | Recharts |
-| State | Zustand (filters) + TanStack Query (server state) |
-| Backend | Node.js + Express + TypeScript |
-| Database | PostgreSQL 16 |
-| ORM | Drizzle ORM |
-| AI | OpenRouter API (Gemini 2.0 Flash free tier) |
-| PDF Export | Puppeteer (server-side) |
-| Deployment | Docker Compose + Nginx + GitHub Actions |
-
----
-
-## 📚 Documentation
-
-Full technical documentation is in the [`docs/`](./docs/) directory:
-
-- [Architecture](./docs/architecture.md) — System diagram and data flow
-- [Data Normalization](./docs/data-normalization.md) — Field-by-field cleaning rules
-- [Join Strategy](./docs/join-strategy.md) — Join logic and conflict resolution
-- [AI Layer](./docs/ai-layer.md) — Grounding approach and prompt design
-- [Analytics Formulas](./docs/analytics-formulas.md) — All calculation formulas
-- [Deployment](./docs/deployment.md) — Server setup and CI/CD
-- [API Reference](./docs/api-reference.md) — All REST endpoints
-
----
-
-## ⚠️ Security
-
-- All secrets in environment variables — never in code or git history
-- `.env` is gitignored — use `.env.example` as template
-- API rate limited with `express-rate-limit`
-- Helmet.js security headers on all responses
-- OpenRouter API key stored server-side only — never exposed to browser
+| Technology | What it is | How we use it in the platform |
+|:---|:---|:---|
+| **Next.js 14** | React Framework | Powers the frontend dashboard, handling layouts, loading states, and page navigation. |
+| **Tailwind CSS** | CSS Framework | Handles custom styling using clean utility classes, creating a responsive glassmorphism dark theme. |
+| **Recharts** | Interactive Charts | Renders dashboard graphs, bar comparisons, and department trendlines. |
+| **Zustand** | State Manager | Stores and synchronizes dashboard search filters (department, search text) across all page views. |
+| **Express.js** | Node.js Server | Handles API routing for employees, anomalies, and AI chat. |
+| **Drizzle ORM** | Database Query Mapper | Maps PostgreSQL database schemas to TypeScript, making queries compile-safe. |
+| **PostgreSQL 16** | Relational Database | Stores and indexes raw activity logs, department mappings, and employee metadata. |
+| **Groq LPU** | Inference Engine | Resolves natural-language chat intents and streams tokens in 1-2 seconds. |
+| **Puppeteer** | Headless Browser | Runs on the backend to render dashboards and export clean PDF reports. |
+| **express-rate-limit**| API Guardian | Blocks abuse by rate-limiting chat requests to 20 per minute. |
+| **Helmet.js** | Security Middleware | Secures backend response headers by stripping framework details (like `X-Powered-By`). |

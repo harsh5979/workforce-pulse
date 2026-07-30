@@ -15,7 +15,12 @@ export const chatbotTools: OpenAI.Chat.ChatCompletionTool[] = [
           },
           fullName: {
             type: 'string',
-            description: 'Name of the employee (fuzzy search supported) to get a single employee\'s stats.'
+            description: 'Name of the employee (fuzzy search supported) to get a single employee\'s stats. MUST NOT be a department name.'
+          },
+          department: {
+            type: 'string',
+            enum: ['Sales', 'Finance', 'Operations', 'CS', 'HR', 'Marketing'],
+            description: 'Filter the list of employees by their department.'
           },
           page: {
             type: 'integer',
