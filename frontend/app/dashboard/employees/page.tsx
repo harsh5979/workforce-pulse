@@ -122,8 +122,8 @@ export default function EmployeesPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-x-auto touch-pan-x scrollbar-thin">
+              <table className="w-full text-left border-collapse text-xs min-w-[700px]">
                 <thead>
                   <tr className="border-b border-border/60 bg-muted/40 text-muted-foreground font-bold uppercase tracking-wider select-none">
                     <th

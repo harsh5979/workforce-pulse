@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Sparkles, ChevronRight, ShieldCheck, CornerDownRight, RotateCcw, ChevronDown, AlertTriangle, X } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Send, Sparkles, ChevronRight, ShieldCheck, CornerDownRight, RotateCcw, ChevronDown, AlertTriangle, RefreshCw, Clock } from 'lucide-react';
 import { SUGGESTED_AI_QUERIES, API_BASE_URL } from '@/lib/constants';
 
 interface Message {
@@ -9,6 +9,7 @@ interface Message {
   sender: 'user' | 'ai';
   text: string;
   isStreaming?: boolean;
+  isRateLimited?: boolean; // all free models returned 429
 }
 
 // Inline markdown -> JSX renderer (bold, currency, hours, code, italic, and clean break sanitization)
@@ -90,12 +91,12 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
 
       if (headers.length > 0 && dataRows.length > 0) {
         out.push(
-          <div key={`tbl-${msgId}-${i}`} className="my-4 overflow-x-auto rounded-xl border border-slate-700/80 shadow-lg">
-            <table className="w-full text-left border-collapse text-xs sm:text-sm">
+          <div key={`tbl-${msgId}-${i}`} className="my-3 overflow-x-auto max-w-full rounded-xl border border-slate-700/80 shadow-lg touch-pan-x scrollbar-thin">
+            <table className="w-full min-w-[460px] text-left border-collapse text-[11px] sm:text-xs">
               <thead>
                 <tr className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700">
                   {headers.map((h, hi) => (
-                    <th key={hi} className={`py-3 px-4 font-bold text-emerald-400 uppercase tracking-wider text-[11px] whitespace-nowrap ${hi === 0 ? 'rounded-tl-xl' : ''} ${hi === headers.length - 1 ? 'rounded-tr-xl' : ''}`}>
+                    <th key={hi} className={`py-2.5 px-3 sm:py-3 sm:px-4 font-bold text-emerald-400 uppercase tracking-wider text-[10px] sm:text-[11px] whitespace-nowrap ${hi === 0 ? 'rounded-tl-xl' : ''} ${hi === headers.length - 1 ? 'rounded-tr-xl' : ''}`}>
                       {h.replace(/\*/g, '')}
                     </th>
                   ))}
@@ -105,7 +106,7 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
                 {dataRows.map((row, ri) => (
                   <tr key={ri} className={`border-b border-slate-800/80 transition-colors hover:bg-emerald-500/5 ${ri % 2 === 0 ? 'bg-slate-950/60' : 'bg-slate-900/40'}`}>
                     {row.map((cell, ci) => (
-                      <td key={ci} className={`py-3 px-4 ${ci === 0 ? 'font-semibold text-white' : 'text-slate-300'}`}>
+                      <td key={ci} className={`py-2 px-3 sm:py-3 sm:px-4 ${ci === 0 ? 'font-semibold text-white' : 'text-slate-300'}`}>
                         {renderInline(cell, `${msgId}-${ri}-${ci}`)}
                       </td>
                     ))}
@@ -113,7 +114,7 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
                 ))}
               </tbody>
             </table>
-            <div className="px-4 py-2 bg-slate-900/80 border-t border-slate-700/60 text-[10px] text-slate-400 font-mono rounded-b-xl">
+            <div className="px-3 sm:px-4 py-2 bg-slate-900/80 border-t border-slate-700/60 text-[10px] text-slate-400 font-mono rounded-b-xl">
               {dataRows.length} row{dataRows.length !== 1 ? 's' : ''} · sourced from normalized workforce telemetry
             </div>
           </div>
@@ -252,7 +253,11 @@ export default function AIPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState<boolean>(true);
-  const [rateLimited, setRateLimited] = useState(false); // all models returned 429
+  // Rate-limit state: countdown (seconds), pending query for retry, and retry attempt count
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
+  const [pendingRetryQuery, setPendingRetryQuery] = useState<string | null>(null);
+  const [rateLimitMsgId, setRateLimitMsgId] = useState<string | null>(null);
+  const retryCountRef = useRef(0);
   const endRef = useRef<HTMLDivElement>(null);
 
   // Collapse suggestions by default on mobile to save vertical space
@@ -276,8 +281,55 @@ export default function AIPage() {
     }
   }, [userMessagesCount]);
 
+  // ── Countdown timer: tick every second, auto-retry at 0 ──────────────────
+  useEffect(() => {
+    if (rateLimitCountdown === null) return;
+    if (rateLimitCountdown <= 0) {
+      // Auto-retry if we haven't exceeded max retries
+      if (pendingRetryQuery && retryCountRef.current < 2) {
+        retryCountRef.current += 1;
+        const q = pendingRetryQuery;
+        setPendingRetryQuery(null);
+        setRateLimitCountdown(null);
+        // Remove the rate-limited bubble before retrying
+        if (rateLimitMsgId) {
+          setMessages(p => p.filter(m => m.id !== rateLimitMsgId));
+          setRateLimitMsgId(null);
+        }
+        sendMessage(q);
+      } else {
+        // Max retries hit — stop countdown, leave bubble with dismiss option
+        setRateLimitCountdown(null);
+      }
+      return;
+    }
+    const t = setTimeout(() => setRateLimitCountdown(c => (c ?? 1) - 1), 1000);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rateLimitCountdown]);
+
+  // Manual "Retry Now" handler
+  const retryNow = useCallback(() => {
+    if (!pendingRetryQuery) return;
+    const q = pendingRetryQuery;
+    retryCountRef.current += 1;
+    setPendingRetryQuery(null);
+    setRateLimitCountdown(null);
+    if (rateLimitMsgId) {
+      setMessages(p => p.filter(m => m.id !== rateLimitMsgId));
+      setRateLimitMsgId(null);
+    }
+    sendMessage(q);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRetryQuery, rateLimitMsgId]);
+
   const sendMessage = async (query: string) => {
     if (!query.trim() || isLoading) return;
+
+    // Clear any previous rate-limit state on a new send
+    setRateLimitCountdown(null);
+    setPendingRetryQuery(null);
+    retryCountRef.current = 0;
 
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: query };
     const aiId = (Date.now() + 1).toString();
@@ -288,7 +340,6 @@ export default function AIPage() {
     setIsLoading(true);
 
     try {
-      setRateLimited(false); // clear any previous rate-limit banner on new attempt
       const res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -314,10 +365,18 @@ export default function AIPage() {
             const parsed = JSON.parse(str);
             if (parsed.sessionId) setSessionId(parsed.sessionId);
             if (parsed.rateLimited) {
-              // All models returned 429 — remove the empty AI bubble and show banner
+              // All free models returned 429:
+              // 1. Mark the bubble as rate-limited (don't remove it — show inline UI)
+              // 2. Release isLoading immediately so UI stays responsive
+              // 3. Start 30s countdown for auto-retry
               wasRateLimited = true;
-              setRateLimited(true);
-              setMessages(p => p.filter(m => m.id !== aiId)); // remove empty bubble
+              setMessages(p => p.map(m =>
+                m.id === aiId ? { ...m, isStreaming: false, isRateLimited: true } : m
+              ));
+              setRateLimitMsgId(aiId);
+              setPendingRetryQuery(query);
+              setRateLimitCountdown(30);
+              setIsLoading(false); // release UI immediately
             } else if (parsed.error) {
               acc += `\n**Notice:** ${parsed.error}`;
               setMessages(p => p.map(m => m.id === aiId ? { ...m, text: acc } : m));
@@ -334,7 +393,7 @@ export default function AIPage() {
     } catch {
       setMessages(p => p.map(m =>
         m.id === aiId
-          ? { ...m, text: '**Connection error.** Please verify your API key is configured in `.env` and try again.', isStreaming: false }
+          ? { ...m, text: '**Connection error.** The server may be unreachable. Check your deployment and try again.', isStreaming: false }
           : m
       ));
     } finally {
@@ -350,54 +409,136 @@ export default function AIPage() {
     }]);
     setSessionId(undefined);
     setIsSuggestionsOpen(true);
-    setRateLimited(false);
+    setRateLimitCountdown(null);
+    setPendingRetryQuery(null);
+    setRateLimitMsgId(null);
+    retryCountRef.current = 0;
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-5.5rem)] lg:h-[calc(100dvh-6.5rem)] animate-fade-in overflow-hidden relative rounded-xl border border-border/50 shadow-sm bg-card">
+    <div className="flex flex-col h-full min-h-0 animate-fade-in overflow-hidden relative sm:rounded-xl border-0 sm:border border-border/50 shadow-sm bg-card">
 
-      {/* Messages Area — Scrollable thread with comfortable bottom padding */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 bg-slate-950/40 min-h-0 relative">
+      {/* Messages Area — Scrollable thread. flex-col (no justify-end) so content starts top and scrolls naturally on mobile */}
+      <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-3 sm:px-6 bg-slate-950/40 relative" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* New Session Button Floating Top Right */}
         <div className="sticky top-0 z-10 flex justify-end pt-3 pb-1 pointer-events-none">
           <button
             onClick={clearChat}
-            className="pointer-events-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-card/90 hover:bg-muted backdrop-blur-md text-muted-foreground hover:text-foreground border border-border/70 text-xs font-bold transition-all shadow-md active:scale-95"
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl bg-card/90 hover:bg-muted backdrop-blur-md text-muted-foreground hover:text-foreground border border-border/70 text-[11px] sm:text-xs font-bold transition-all shadow-md active:scale-95"
           >
             <RotateCcw className="w-3.5 h-3.5 text-primary" />
             <span>New Session</span>
           </button>
         </div>
 
-        <div className="flex flex-col justify-end min-h-[calc(100%-2.5rem)] pb-8 space-y-5">
+        {/* No justify-end: let messages stack from top. Bottom padding ensures last message clears sticky input bar */}
+        <div className="flex flex-col min-h-[calc(100%-2.5rem)] pb-32 sm:pb-24 pt-2 space-y-4 sm:space-y-5">
           {messages.map((m) => (
             <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`w-full sm:max-w-[85%] lg:max-w-[78%] rounded-2xl px-5 py-4 ${m.sender === 'user'
+                className={`w-full max-w-[94%] sm:max-w-[85%] lg:max-w-[78%] rounded-2xl px-3.5 py-3 sm:px-5 sm:py-4 ${m.sender === 'user'
                     ? 'bg-gradient-to-br from-primary/25 to-blue-600/20 border border-primary/40 text-white rounded-tr-none ml-auto shadow-md'
                     : 'bg-card border border-border/70 text-foreground rounded-tl-none shadow-md'
                   }`}
               >
                 {m.sender === 'user' ? (
-                  <p className="text-sm font-medium leading-relaxed">{m.text}</p>
+                  <p className="text-xs sm:text-sm font-medium leading-relaxed">{m.text}</p>
                 ) : (
                   <div className="space-y-2">
-                    <AIMessageBody content={m.text} msgId={m.id} isStreaming={m.isStreaming} />
-                    {m.isStreaming && (
-                      <div className="flex items-center gap-2 pt-2 text-muted-foreground text-xs font-mono">
-                        <span className="flex gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
-                        </span>
-                        <span>Analyzing records...</span>
+                    {/* ── Rate-limit inline bubble ── */}
+                    {m.isRateLimited ? (
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-amber-300">All free AI models are rate-limited (429)</p>
+                            <p className="text-[11px] text-amber-400/80 font-mono mt-0.5">
+                              Too many requests hit the free tier. {retryCountRef.current >= 2
+                                ? 'Maximum auto-retries reached. Please try again manually in a minute.'
+                                : rateLimitCountdown !== null && rateLimitMsgId === m.id
+                                  ? `Auto-retrying in ${rateLimitCountdown}s…`
+                                  : 'Ready to retry.'}
+                            </p>
+                          </div>
+                        </div>
+                        {/* Progress bar for countdown */}
+                        {rateLimitCountdown !== null && rateLimitMsgId === m.id && retryCountRef.current < 2 && (
+                          <div className="space-y-1.5">
+                            <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-1000 ease-linear"
+                                style={{ width: `${(rateLimitCountdown / 30) * 100}%` }}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="flex items-center gap-1.5 text-[11px] text-amber-400/70 font-mono">
+                                <Clock className="w-3 h-3" />
+                                Auto-retry in {rateLimitCountdown}s
+                              </span>
+                              <button
+                                onClick={retryNow}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-amber-300 text-[11px] font-bold transition-all active:scale-95"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                Retry Now
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {/* Show retry button if max retries not hit and no countdown running */}
+                        {rateLimitCountdown === null && retryCountRef.current < 2 && rateLimitMsgId === m.id && (
+                          <button
+                            onClick={retryNow}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all active:scale-95"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Retry
+                          </button>
+                        )}
                       </div>
-                    )}
-                    {!m.isStreaming && m.id !== 'welcome' && (
-                      <div className="flex items-center gap-1.5 pt-2 border-t border-border/40 text-[11px] text-muted-foreground font-mono">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Grounded on database records</span>
-                      </div>
+                    ) : (
+                      <>
+                        {m.isStreaming ? (
+                          m.text.length === 0 ? (
+                            /* ── Phase 1: No tokens yet — show thinking skeleton ── */
+                            <div className="flex flex-col gap-3 py-1">
+                              <div className="flex items-center gap-2 text-muted-foreground text-xs font-mono">
+                                <span className="flex gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
+                                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+                                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+                                </span>
+                                <span className="animate-pulse">Analyzing workforce data...</span>
+                              </div>
+                              <div className="space-y-2 opacity-25">
+                                <div className="h-2 bg-muted rounded-full w-3/4 animate-pulse" />
+                                <div className="h-2 bg-muted rounded-full w-full animate-pulse [animation-delay:150ms]" />
+                                <div className="h-2 bg-muted rounded-full w-5/6 animate-pulse [animation-delay:300ms]" />
+                              </div>
+                            </div>
+                          ) : (
+                            /* ── Phase 2: Tokens arriving — show plain text immediately ── */
+                            <div className="space-y-2">
+                              <p className="text-sm text-slate-200 leading-relaxed font-sans whitespace-pre-wrap">
+                                {m.text}
+                                {/* Blinking cursor */}
+                                <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse align-middle" />
+                              </p>
+                            </div>
+                          )
+                        ) : (
+                          /* ── Phase 3: Done — snap to full rich formatted output ── */
+                          <div className="animate-fade-in">
+                            <AIMessageBody content={m.text} msgId={m.id} isStreaming={false} />
+                            {m.id !== 'welcome' && (
+                              <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-border/40 text-[11px] text-muted-foreground font-mono">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Grounded on database records</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -408,25 +549,23 @@ export default function AIPage() {
         </div>
       </div>
 
-      {/* Bottom Panel: Rate-limit banner + Suggested Prompts + Input Bar */}
-      <div className="shrink-0 border-t border-border/70 bg-card/95 backdrop-blur-md shadow-2xl z-20">
+      {/* Bottom Panel: capped height so suggestions never overflow small screens */}
+      <div className="shrink-0 border-t border-border/70 bg-card/95 backdrop-blur-md shadow-2xl z-20 flex flex-col" style={{ maxHeight: '60vh' }}>
 
-        {/* ── Rate-limit banner — shown ONLY when all models returned 429 ── */}
-        {rateLimited && (
-          <div className="flex items-center justify-between gap-3 px-4 py-3 bg-amber-500/10 border-b border-amber-500/30 animate-fade-in">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-amber-300">Too many requests — AI models are rate-limited</p>
-                <p className="text-[11px] text-amber-400/80 font-mono">All free models returned 429. Please wait a moment and try again.</p>
-              </div>
+        {/* ── Rate-limit countdown strip (only shown during active countdown) ── */}
+        {rateLimitCountdown !== null && (
+          <div className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/8 border-b border-amber-500/20 animate-fade-in">
+            <div className="flex items-center gap-2 min-w-0">
+              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
+              <p className="text-[11px] font-mono text-amber-400/80">
+                Rate-limited · Auto-retrying in <span className="font-black text-amber-300">{rateLimitCountdown}s</span>
+              </p>
             </div>
             <button
-              onClick={() => setRateLimited(false)}
-              className="p-1 rounded-md hover:bg-amber-500/20 text-amber-400 shrink-0 transition-colors"
-              aria-label="Dismiss"
+              onClick={() => { setRateLimitCountdown(null); setPendingRetryQuery(null); }}
+              className="text-[10px] font-bold text-amber-400/60 hover:text-amber-300 font-mono transition-colors shrink-0"
             >
-              <X className="w-4 h-4" />
+              Cancel
             </button>
           </div>
         )}
@@ -436,20 +575,20 @@ export default function AIPage() {
           <button
             type="button"
             onClick={() => setIsSuggestionsOpen(!isSuggestionsOpen)}
-            className="w-full px-4 sm:px-6 py-2 flex items-center justify-between text-xs font-bold text-muted-foreground hover:text-foreground transition-colors group"
+            className="w-full px-3 sm:px-6 py-2 flex items-center justify-between text-xs font-bold text-muted-foreground hover:text-foreground transition-colors group"
           >
-            <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[11px] text-emerald-400">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Suggested Question Prompts ({SUGGESTED_AI_QUERIES.length})</span>
+            <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] sm:text-[11px] text-emerald-400">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>Suggested Prompts ({SUGGESTED_AI_QUERIES.length})</span>
             </span>
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground group-hover:text-primary transition-colors">
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground group-hover:text-primary transition-colors">
               <span>{isSuggestionsOpen ? 'Collapse' : 'Expand Suggestions'}</span>
-              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isSuggestionsOpen ? 'rotate-180 text-primary' : 'text-muted-foreground'}`} />
+              <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 ${isSuggestionsOpen ? 'rotate-180 text-primary' : 'text-muted-foreground'}`} />
             </div>
           </button>
 
           {isSuggestionsOpen && (
-            <div className="px-4 sm:px-6 pb-3 pt-1 space-y-2.5 animate-fade-in border-t border-border/40">
+            <div className="px-3 sm:px-6 pb-3 pt-1 space-y-2.5 animate-fade-in border-t border-border/40 overflow-y-auto overscroll-contain" style={{ maxHeight: '35vh', WebkitOverflowScrolling: 'touch' }}>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {SUGGESTED_AI_QUERIES.slice(0, 3).map((q, idx) => (
                   <button
@@ -473,24 +612,24 @@ export default function AIPage() {
           )}
         </div>
 
-        {/* Input Bar — Always Visible at Bottom */}
-        <div className="px-4 sm:px-6 py-3">
+        {/* Input Bar — Always Visible & Sticky at Bottom on Phones */}
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3">
           <form
             onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
-            className="flex items-center gap-2.5"
+            className="flex items-center gap-2"
           >
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
-              placeholder="Ask about repetitive tasks, automation ROI, department costs..."
-              className="flex-1 bg-slate-950/80 border border-border/80 rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all font-sans shadow-inner"
+              placeholder="Ask about repetitive tasks, automation ROI..."
+              className="flex-1 bg-slate-950/80 border border-border/80 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all font-sans shadow-inner min-w-0"
             />
             <button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className="p-3 rounded-xl bg-gradient-to-r from-primary to-emerald-500 text-slate-950 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 shrink-0 hover:scale-[1.02]"
+              className="p-2.5 sm:p-3 rounded-xl bg-gradient-to-r from-primary to-emerald-500 text-slate-950 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 shrink-0 hover:scale-[1.02] flex items-center justify-center"
             >
               <Send className="w-4 h-4 text-slate-950 fill-slate-950" />
             </button>

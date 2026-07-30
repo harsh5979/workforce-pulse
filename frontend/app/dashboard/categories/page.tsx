@@ -171,8 +171,8 @@ export default function CategoriesPage() {
           </div>
 
           {/* Paginated & Sortable Tabular Analysis */}
-          <div className="glass-card overflow-hidden border-border/60">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="glass-card overflow-x-auto border-border/60 touch-pan-x scrollbar-thin">
+            <table className="w-full text-left border-collapse text-xs min-w-[600px]">
               <thead>
                 <tr className="border-b border-border bg-muted/20 text-muted-foreground uppercase tracking-wider font-semibold select-none">
                   <th

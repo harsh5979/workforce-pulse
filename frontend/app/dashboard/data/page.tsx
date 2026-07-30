@@ -661,8 +661,8 @@ E020,2026-02-15,210,Design System Systemization,false,Updating cross-platform UI
                 </div>
 
                 {/* Internal Scrollable Table Box (Max height capped so table never pushes footer down) */}
-                <div className="overflow-x-auto overflow-y-auto max-h-[300px] rounded-xl border border-border/80 shadow-inner">
-                  <table className="w-full text-left border-collapse text-xs">
+                <div className="overflow-x-auto overflow-y-auto max-h-[300px] sm:max-h-[400px] rounded-xl border border-border/80 shadow-inner touch-pan-x scrollbar-thin">
+                  <table className="w-full text-left border-collapse text-xs min-w-[720px]">
                     <thead className="sticky top-0 bg-slate-900 border-b border-border text-xs font-mono uppercase font-bold text-slate-300 z-10 shadow-sm">
                       <tr>
                         {parsedHeaders.map((hdr, idx) => (

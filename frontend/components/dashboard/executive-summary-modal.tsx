@@ -330,8 +330,8 @@ export function ExecutiveSummaryModal({ isOpen, onClose }: ExecutiveSummaryModal
                     <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">Ranked by Repetitive Volume</span>
                   </div>
 
-                  <div className="rounded-xl border border-slate-800 overflow-hidden">
-                    <table className="w-full text-left text-xs border-collapse">
+                  <div className="rounded-xl border border-slate-800 overflow-x-auto touch-pan-x scrollbar-thin">
+                    <table className="w-full text-left text-xs border-collapse min-w-[480px]">
                       <thead>
                         <tr className="bg-slate-900 border-b border-slate-800 text-slate-300 uppercase text-[11px] tracking-wider font-bold">
                           <th className="py-2.5 px-3 w-10 text-center">#</th>

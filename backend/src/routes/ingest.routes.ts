@@ -6,6 +6,7 @@ import { activityLogs, employees } from '../db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import fs from 'fs/promises';
 import path from 'path';
+import { invalidateContextCache } from '../services/ai/context-builder';
 
 const router = Router();
 const DATA_DIR = path.resolve(__dirname, '../../../../data');
@@ -15,6 +16,7 @@ router.post('/', async (req, res) => {
   try {
     logger.info('Ingestion triggered via API');
     const result = await runIngestion();
+    invalidateContextCache(); // AI gets fresh data on next message
     res.json(result);
   } catch (err: any) {
     logger.error('Ingestion failed:', err);

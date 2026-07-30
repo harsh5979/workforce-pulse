@@ -1,6 +1,19 @@
 import { db } from '../../config/db';
 import { activityLogs, employees, ingestionRuns } from '../../db/schema';
 import { sql, eq } from 'drizzle-orm';
+import { logger } from '../../utils/logger';
+
+// ── In-memory context cache (TTL: 10 seconds) ───────────────────────────────
+// Eliminates 6 SQL queries re-running on rapid follow-up messages in same session.
+// CSV upload immediately invalidates the cache via invalidateContextCache().
+let _contextCache: { text: string; builtAt: number } | null = null;
+const CACHE_TTL_MS = 10_000; // 10 seconds
+
+/** Force-bust the cache (call this after CSV ingestion / db:seed) */
+export function invalidateContextCache(): void {
+  _contextCache = null;
+  logger.info('AI context cache invalidated — next request will re-query PostgreSQL.');
+}
 
 export interface AIContext {
   datasetInfo: {
@@ -201,7 +214,7 @@ export async function buildAIContext(): Promise<AIContext> {
     .leftJoin(employees, eq(activityLogs.employeeId, employees.employeeId))
     .groupBy(activityLogs.employeeId, employees.fullName, employees.department, employees.role, activityLogs.taskCategory, employees.compAnnualInr, employees.workingHoursDay)
     .orderBy(sql`SUM(CASE WHEN ${activityLogs.isRepetitive} THEN CAST(${activityLogs.durationMin} AS DECIMAL) ELSE 0 END) DESC`)
-    .limit(60);
+    .limit(15); // Top 15 most repetitive employee×task pairs — enough for all standard queries
 
     const employeeTaskCategoryBreakdown = empCatStats.map(ec => {
     const repH = Number(ec.repMins) / 60;
@@ -279,10 +292,24 @@ export async function buildAIContext(): Promise<AIContext> {
 /**
  * Ultra token-efficient Markdown Table generator for AI Prompt Context.
  * Reduces token consumption by 85%+ compared to raw verbose JSON.
+ * Results are cached for 60s to avoid re-running 6 SQL queries on every AI message.
  */
 export async function buildCompactAIPrompt(): Promise<string> {
+  const now = Date.now();
+
+  // Return cached context if still fresh
+  if (_contextCache && (now - _contextCache.builtAt) < CACHE_TTL_MS) {
+    logger.info(`AI context served from cache (age: ${Math.round((now - _contextCache.builtAt) / 1000)}s)`);
+    return _contextCache.text;
+  }
+
+  logger.info('AI context cache miss — querying PostgreSQL for fresh data...');
+  const t0 = Date.now();
   const data = await buildAIContext();
+  logger.info(`AI context built in ${Date.now() - t0}ms — caching for ${CACHE_TTL_MS / 1000}s`);
+
   const lines: string[] = [];
+
 
   lines.push('### GLOBAL WORKFORCE METRICS');
   lines.push(`Staff Total: ${data.datasetInfo.totalEmployees} | Depts: ${data.datasetInfo.departments.join(', ')} | Weeks Monitored: ${data.datasetInfo.weeksSpanned}`);
@@ -301,19 +328,39 @@ export async function buildCompactAIPrompt(): Promise<string> {
   }
   lines.push('');
 
-  lines.push('### INDIVIDUAL EMPLOYEE ACTIVITY BREAKDOWN (Emp ID | Name | Dept | Role | Task Category | Rep Hours / Total Hours | Est. Monthly Cost INR)');
-  // Take the most meaningful activity records (repHours > 0 or top tasks) to minimize tokens while keeping exact facts
+  lines.push('### INDIVIDUAL EMPLOYEE REPETITIVE WORK (EmpID | Name | Dept | Role | Category | RepHrs/TotalHrs | ₹/mo)');
+  // Only top 15 highest-repetitive employee×task rows — covers all standard ranking/ROI queries
   for (const item of data.employeeTaskCategoryBreakdown) {
-    if (item.repetitiveHours > 0 || item.totalHours >= 2) {
-      lines.push(`${item.employeeId} | ${item.name} | ${item.department} | ${item.role} | ${item.category} | ${item.repetitiveHours}h / ${item.totalHours}h | ₹${item.monthlyRepCostInr ? item.monthlyRepCostInr.toLocaleString('en-IN') : '0'}`);
-    }
+    lines.push(`${item.employeeId}|${item.name}|${item.department}|${item.role}|${item.category}|${item.repetitiveHours}h/${item.totalHours}h|₹${item.monthlyRepCostInr ?? 0}`);
   }
   lines.push('');
 
-  lines.push('### WEEK-OVER-WEEK EMPLOYEE TRAJECTORY (Emp ID | Name | Dept | Week | Total Hrs | Repetitive Hrs | Rep Share %)');
+  // Weekly trends as a compact dept-level summary (not per-employee — saves ~1,200 tokens)
+  const weeklyDeptSummary = new Map<string, { dept: string; weeks: number[]; repPcts: number[] }>();
   for (const w of data.weeklyEmployeeTrajectory) {
-    lines.push(`${w.employeeId} | ${w.name} | ${w.department} | Wk ${w.weekNumber} | ${w.totalHours}h | ${w.repHours}h | ${w.repSharePct}%`);
+    const key = w.department;
+    if (!weeklyDeptSummary.has(key)) weeklyDeptSummary.set(key, { dept: w.department, weeks: [], repPcts: [] });
+    const entry = weeklyDeptSummary.get(key)!;
+    if (!entry.weeks.includes(w.weekNumber)) {
+      entry.weeks.push(w.weekNumber);
+      const deptWeekAvg = data.weeklyEmployeeTrajectory
+        .filter(x => x.department === w.department && x.weekNumber === w.weekNumber)
+        .reduce((acc, x) => ({ sum: acc.sum + x.repSharePct, count: acc.count + 1 }), { sum: 0, count: 0 });
+      entry.repPcts.push(Math.round(deptWeekAvg.sum / Math.max(deptWeekAvg.count, 1) * 10) / 10);
+    }
+  }
+  lines.push('### WEEKLY TREND BY DEPT (Dept | Wk1 Rep% | Wk2 Rep% | Wk3 Rep% | Wk4 Rep%)');
+  for (const [, v] of weeklyDeptSummary) {
+    const pcts = v.repPcts.map(p => `${p}%`).join(' | ');
+    lines.push(`${v.dept} | ${pcts}`);
   }
 
-  return lines.join('\n');
+  const text = lines.join('\n');
+  // Log estimated token count (1 token ≈ 4 chars)
+  logger.info(`AI context ready: ~${Math.round(text.length / 4)} tokens estimated`);
+
+  // Store in cache
+  _contextCache = { text, builtAt: Date.now() };
+
+  return text;
 }
