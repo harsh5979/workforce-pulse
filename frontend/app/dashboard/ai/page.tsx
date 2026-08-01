@@ -17,7 +17,7 @@ function renderInline(text: string, key: string) {
   // Replace any raw <br>, <br/>, or <br /> with clean bullet spacing
   const cleaned = text.replace(/<br\s*\/?>/gi, ' • ');
   const parts = cleaned.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`|₹[\d,]+(\.\d+)?|\b[\d.]+\s*(?:hrs?|hours?)\b)/g);
-  
+
   return parts.filter(Boolean).map((part, i) => {
     const k = `${key}-${i}`;
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4)
@@ -305,7 +305,7 @@ export default function AIPage() {
     }
     const t = setTimeout(() => setRateLimitCountdown(c => (c ?? 1) - 1), 1000);
     return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rateLimitCountdown]);
 
   // Manual "Retry Now" handler
@@ -320,7 +320,7 @@ export default function AIPage() {
       setRateLimitMsgId(null);
     }
     sendMessage(q);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingRetryQuery, rateLimitMsgId]);
 
   const sendMessage = async (query: string) => {
@@ -437,8 +437,8 @@ export default function AIPage() {
             <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={`w-full max-w-[94%] sm:max-w-[85%] lg:max-w-[78%] rounded-2xl px-3.5 py-3 sm:px-5 sm:py-4 ${m.sender === 'user'
-                    ? 'bg-gradient-to-br from-primary/25 to-blue-600/20 border border-primary/40 text-white rounded-tr-none ml-auto shadow-md'
-                    : 'bg-card border border-border/70 text-foreground rounded-tl-none shadow-md'
+                  ? 'bg-gradient-to-br from-primary/25 to-blue-600/20 border border-primary/40 text-white rounded-tr-none ml-auto shadow-md'
+                  : 'bg-card border border-border/70 text-foreground rounded-tl-none shadow-md'
                   }`}
               >
                 {m.sender === 'user' ? (
@@ -590,7 +590,7 @@ export default function AIPage() {
           {isSuggestionsOpen && (
             <div className="px-3 sm:px-6 pb-3 pt-1 space-y-2.5 animate-fade-in border-t border-border/40 overflow-y-auto overscroll-contain" style={{ maxHeight: '35vh', WebkitOverflowScrolling: 'touch' }}>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {SUGGESTED_AI_QUERIES.slice(0, 3).map((q, idx) => (
+                {SUGGESTED_AI_QUERIES.slice(0, 5).map((q, idx) => (
                   <button
                     key={idx}
                     onClick={() => sendMessage(q)}
@@ -601,13 +601,13 @@ export default function AIPage() {
                   </button>
                 ))}
               </div>
-              <button
+              {/* <button
                 onClick={() => sendMessage('and break that down by department')}
                 className="text-[11px] py-1.5 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-300 font-mono font-semibold transition-all flex items-center gap-2"
               >
                 <CornerDownRight className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span>Follow-up: &quot;and break that down by department&quot;</span>
-              </button>
+              </button> */}
             </div>
           )}
         </div>

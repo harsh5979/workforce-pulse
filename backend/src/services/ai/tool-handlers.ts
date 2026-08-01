@@ -28,7 +28,7 @@ async function handleGetEmployeeAnalytics(args: {
   limit?: number;
 }) {
   const page = Math.max(1, args.page ?? 1);
-  const limit = Math.min(15, Math.max(1, args.limit ?? 15));
+  const limit = Math.min(35, Math.max(1, args.limit ?? 35));
   const offset = (page - 1) * limit;
 
   // Case A: Query for a specific employeeId

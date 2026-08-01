@@ -1,233 +1,223 @@
 import OpenAI from 'openai';
-import { env } from '../../config/env';
-import { chatbotTools } from './tools';
-import { executeTool } from './tool-handlers';
-import { addMessage, getHistory, createSession, getSession } from './conversation.store';
-import { logger } from '../../utils/logger';
-import { Response } from 'express';
+import { openai, MODELS }          from './ai.config';
+import { buildSystemPrompt,
+         buildStep3Prompt }         from './ai.prompts';
+import { compressToolResult }       from './ai.compress';
+import { selectToolSchemas }        from './ai.schema-selector';
+import { chatbotTools }             from './tools';          // ← all 5 schemas (mismatch fallback)
+import { executeTool }              from './tool-handlers';
+import { addMessage, getHistory,
+         createSession, getSession } from './conversation.store';
+import { logger }                   from '../../utils/logger';
+import { Response }                 from 'express';
 
-// ── Provider selection: Groq takes priority over OpenRouter ─────────────────
-// Groq key starts with "gsk_" and is set via GROQ_API_KEY env var
-const groqKey = env.GROQ_API_KEY;
-const openrouterKey = env.OPENROUTER_API_KEY;
-const isGroq = Boolean(groqKey && groqKey.startsWith('gsk_'));
-const rawApiKey = isGroq ? groqKey! : openrouterKey;
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERNAL HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ── Startup log — visible in nodemon terminal ────────────────────────────────
-logger.info(`=== AI SERVICE STARTUP ===`);
-logger.info(`Provider : ${isGroq ? '✅ GROQ  (fast LPU inference)' : '⚠️  OpenRouter (GPU shared)'}`);
-logger.info(`API Key  : ${rawApiKey ? rawApiKey.slice(0, 12) + '...' + rawApiKey.slice(-4) : '❌ MISSING'}`);
-logger.info(`Base URL : ${isGroq ? 'https://api.groq.com/openai/v1' : 'https://openrouter.ai/api/v1'}`);
-logger.info(`Models   : ${isGroq ? 'llama-3.1-8b-instant → gemma2-9b-it → llama-3.3-70b' : 'gemini-flash → llama-8b → gpt-oss-20b...'}`);
-if (!isGroq && groqKey) logger.warn(`GROQ_API_KEY found but does NOT start with "gsk_" — falling back to OpenRouter`);
-if (!rawApiKey) logger.error(`❌ No API key found! Set GROQ_API_KEY or OPENROUTER_API_KEY in .env`);
-logger.info(`=========================`);
-
-const openai = new OpenAI({
-  baseURL: isGroq ? 'https://api.groq.com/openai/v1' : 'https://openrouter.ai/api/v1',
-  apiKey: rawApiKey,
-  defaultHeaders: isGroq ? {} : {
-    'HTTP-Referer': env.SITE_URL,
-    'X-Title': 'Workforce Pulse',
-  },
-});
-
-// Model fallback chains — priority order
-const MODELS = isGroq ? [
-  // llama-3.1-8b-instant: 14,400 req/day free — fastest, perfect for structured data
-  'llama-3.1-8b-instant',
-  // gemma2-9b-it: 14,400 req/day, 15k tokens/min — great fallback
-  'gemma2-9b-it',
-  // llama-3.3-70b: only 500 req/day — use as last resort for complex queries
-  'llama-3.3-70b-versatile',
-  'mixtral-8x7b-32768',
-] : [
-  // Fastest free models first — reordered for speed
-  'google/gemini-flash-1.5:free',          // ~200 t/s, most reliable free model
-  'meta-llama/llama-3.1-8b-instruct:free', // ~80 t/s, small = fast
-  'openai/gpt-oss-20b:free',               // Good quality but slower
-  'openai/gpt-oss-120b:free',              // High quality, slower
-  'google/gemma-4-31b-it:free',            // Fallback
-  'inclusionai/ling-3.0-flash:free',       // Fallback
-  'nvidia/nemotron-3-super-120b-a12b:free', // Last resort — large model
-];
-
-function buildSystemPrompt(): string {
-  return `You are WorkforcePulse AI, an executive data analyst assistant for a workforce productivity platform.
-
-CRITICAL SECURITY RULE:
-- You are strictly a READ-ONLY assistant. Under no circumstances can you write, create, add, insert, update, delete, or edit any database entries (e.g. "create employee", "delete E014", "edit Sales", or common typos/misspellings like "cretae emplooy", "delte", "updaet", "edti", "insert").
-- If the user asks or attempts to perform any write actions, creation, deletion, or editing, you MUST NOT call any tools under any circumstances. You must immediately output a polite denial message stating that you are a read-only analytics assistant and cannot modify any database records.
-
-You have access to safe, real-time database tools to fetch operational telemetry. You should use them whenever a user asks about employees, departments, task categories, trends, or anomalies.
-
-STRICT RULES:
-1. ONLY answer using exact facts retrieved from your database tools. Never invent or round numbers inaccurately.
-2. ALWAYS cite exact figures and IDs when making quantitative claims (e.g., E014 Arun Kumar: 21.6h, ₹15,985/mo).
-3. Support follow-up questions cleanly with multi-turn context.
-4. FORMAT RULES — follow these exactly:
-   - You must structure your response in this exact order:
-     1. INTRO: Begin with a single, brief, formal introductory sentence explaining what data is shown (e.g. "Here is the time and cost analysis for email triage within the Finance department:"). Do NOT print the table or data before this sentence.
-     2. DATA: Present the requested data. 
-        - For single-entity answers (e.g., "Who has the most...", "how much does X cost"): output ONLY the single matching entity's details as bullet points (e.g. **Employee:** Rohan Jain). Do not include comparisons, lists, or tables unless explicitly asked.
-        - For lists, rankings, or comparisons of 2+ entities: output a MARKDOWN TABLE using pipe syntax (| Col | Col |). Do NOT duplicate the table data as bullet lists or cards.
-     3. OUTRO: Conclude with a single helpful suggestion for related analytical queries (e.g. "If you would like to analyze department averages, WoW trends, or potential automation opportunities, please let me know, and I can retrieve the relevant data.").
-   - Use bold (**text**) for key names, figures, and labels.
-   - Keep responses concise, formal, and executive-grade. No extra conversational filler.
-5. OUT-OF-SCOPE OR NO RECORD QUERIES: Never give a blunt or robotic "not present in dataset" response. If an inquiry targets an entity, date range, or filter where zero matching telemetry logs exist, respond in a formal, courteous, and professional executive tone. For example: "Based on our active workforce telemetry and operational logs, no recorded activity logs currently match these criteria." Then gracefully offer a related analytical insight by querying other available tools.
-6. When evaluating automation ROI or executive summaries, cite priority index scores and INR savings potential.
-7. Never output raw JSON. Only use Markdown (tables, bullets, bold).
-8. READ-ONLY EXCLUSION (STRICT): You have read-only permissions on the database. Under no circumstances can you write, create, update, delete, or edit any records (such as "create employee", "delete E014", "edit department Sales"). If a user requests any mutation, creation, deletion, or editing, you must politely and clearly explain that you are a read-only analytics assistant and cannot perform database modifications.
-9. TECHNICAL PRIVACY: Never expose database implementation details (such as "PostgreSQL", "Drizzle ORM", "SQL tables", or "HRMS schema names") to the user. Keep your responses focused purely on workforce metrics and operational logs.
-10. STRICT DATA-ONLY WORKSPACE SCOPE & CODE BLOCK PROHIBITION (CRITICAL): You are strictly a database-grounded workforce telemetry data analyst. You must ONLY answer queries that translate directly into database filters and tool calls (such as employee productivity, hours, department budgets, and cost metrics). You must refuse to answer any general-knowledge, personal, chatty, meta-questions, or out-of-scope questions (including describing the platform design, suggesting query examples, or talking about your own code). You must NEVER write, generate, or provide programming code, scripts, or coding snippets (such as JavaScript, Python, HTML, SQL, etc.) to the user. If the user asks for programming code, scripting, general knowledge, or any meta-question, decline politely, formally, and briefly: "I am a read-only workforce database analytics assistant. I can only provide insights based on database queries. Please ask me questions directly related to employee performance, department metrics, task categories, or automation ROI."
-11. PARAMETER MAPPING: When searching for employees within a specific department, pass the department name (e.g. "Finance", "Sales") to the "department" parameter of the "get_employee_analytics" tool. NEVER pass a department name into the "fullName" or "employeeId" parameters.`;
+/** Set standard SSE response headers. */
+function setSseHeaders(res: Response, sid: string): void {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Session-Id', sid);
+  res.setHeader('X-Accel-Buffering', 'no');
 }
+
+/**
+ * Stream a plain string word-by-word via SSE — no LLM call needed.
+ * Used by all zero-token gates (write-intent, greeting, scope).
+ */
+async function streamDirect(
+  res: Response,
+  sid: string,
+  text: string,
+  model: string,
+  delayMs = 5
+): Promise<string> {
+  setSseHeaders(res, sid);
+  for (const word of text.split(/(\s+)/)) {
+    res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
+    await new Promise(r => setTimeout(r, delayMs));
+  }
+  addMessage(sid, { role: 'assistant', content: text });
+  res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model })}\n\n`);
+  res.end();
+  return text;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GATE CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Gate 1 — Write/mutation intent
+const WRITE_INTENT_RE = /\b(create|cretae|delete|delte|insert|remove|modify)\b/i;
+const WRITE_ENTITY_RE = /\b(add|new)\s+(employee|emplooy|dept|department|record|log|user)\b/i;
+const EDIT_RE         = /\b(update|edit|edti|change)\s+(employee|emplooy|dept|department|compensation|record|log|role|user)\b/i;
+const WRITE_DENIAL    = "I'm a read-only analytics assistant, and I don't have the capability to create, update, delete, or edit any records in the database. My purpose is to provide insights and analytics based on the existing operational data.";
+
+// Gate 2 — Greeting
+const GREETING_RE      = /^(hi|hello|hey|helo|hii|hola|good\s*(morning|afternoon|evening|day)|greetings|howdy|sup|what'?s up|yo)\W*$/i;
+const GREETING_FULL    = `Hello! I'm **WorkforcePulse AI** — your read-only workforce analytics assistant.\n\nI can help you with:\n- **Employee performance** — hours logged, repetitive task load, cost per employee\n- **Department analytics** — team breakdowns, headcount, rep share %\n- **Task categories** — automation priority scores, time distribution\n- **Weekly trends** — repetitive work progression over time\n- **Automation ROI** — monthly INR recovery potential\n\nWhat would you like to explore today?`;
+const GREETING_COMPACT = 'Hello! I am WorkforcePulse AI — your workforce analytics assistant. Ready to help.';
+
+// Gate 3 — Off-topic scope
+const SCOPE_RE        = /\b(employee|emplo|dept|department|hour|repetitive|task|categor|salary|cost|compensation|automat|roi|workfor|analytic|trend|week|anomaly|headcount|finance|sales|operations|marketing|overtime|budget|\bcs\b|\bhr\b)\b/i;
+const FOLLOWUP_RE     = /^(and|also|what about|break|now show|compare|how about|which|who|show me|give me)\b/i;
+const SCOPE_DENIAL    = 'I am a read-only workforce analytics assistant. I can only provide insights based on employee performance, department metrics, task categories, or automation ROI. Please ask a workforce-related question.';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN EXPORT
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function streamAIChat(
   sessionId: string | null,
   userMessage: string,
   res: Response
 ): Promise<string> {
-  // Create or retrieve session
-  let sid = sessionId;
-  if (!sid || !getSession(sid)) {
-    sid = createSession();
-  }
 
-  // Get conversation history — cap at 4 turns
-  const history = getHistory(sid).filter(m => m.role !== 'system').slice(-4);
+  // ── 1. SESSION ──────────────────────────────────────────────────────────────
+  const sid = sessionId && getSession(sessionId) ? sessionId : createSession();
 
-  // Add user message to history
+  // ── 2. HISTORY — last 2 messages only (= 1 turn ≈ 60–130 tokens) ───────────
+  const history = getHistory(sid).filter(m => m.role !== 'system').slice(-2);
   addMessage(sid, { role: 'user', content: userMessage });
 
-  // ─── CRITICAL SECURITY CHECK: Short-circuit any write/mutation intent ───────
-  const lowercaseMessage = userMessage.toLowerCase();
-  const isWriteIntent = 
-    /\b(create|cretae|delete|delte|insert|remove|modify)\b/i.test(lowercaseMessage) ||
-    /\b(add|new)\s+(employee|emplooy|dept|department|record|log|user)\b/i.test(lowercaseMessage) ||
-    /\b(update|edit|edti|change)\s+(employee|emplooy|dept|department|compensation|record|log|role|user)\b/i.test(lowercaseMessage);
-
-  if (isWriteIntent) {
-    logger.info(`Mutation/write intent detected: "${userMessage}". Short-circuiting response.`);
-    const denialContent = "I'm a read-only analytics assistant, and I don't have the capability to create, update, delete, or edit any records in the database. My purpose is to provide insights and analytics based on the existing operational data.";
-    
-    // Set up SSE headers immediately
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Session-Id', sid);
-    res.setHeader('X-Accel-Buffering', 'no');
-
-    // Stream the denial message word-by-word for a smooth streaming UX
-    const words = denialContent.split(/(\s+)/);
-    for (const word of words) {
-      res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
-      await new Promise(resolve => setTimeout(resolve, 5));
-    }
-
-    addMessage(sid, { role: 'assistant', content: denialContent });
-    res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: 'security-gateway' })}\n\n`);
-    res.end();
-    return denialContent;
+  // ── 3. WRITE-INTENT GATE (0 LLM tokens) ────────────────────────────────────
+  const lc = userMessage.toLowerCase();
+  if (WRITE_INTENT_RE.test(lc) || WRITE_ENTITY_RE.test(lc) || EDIT_RE.test(lc)) {
+    logger.info(`Write intent detected: "${userMessage}" — short-circuited`);
+    return streamDirect(res, sid, WRITE_DENIAL, 'security-gateway');
   }
 
+  // ── 4. GREETING GATE (0 LLM tokens) ────────────────────────────────────────
+  if (GREETING_RE.test(userMessage.trim())) {
+    logger.info(`Greeting detected — responding with intro (0 tokens)`);
+    setSseHeaders(res, sid);
+    for (const word of GREETING_FULL.split(/(\s+)/)) {
+      res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
+      await new Promise(r => setTimeout(r, 8));
+    }
+    addMessage(sid, { role: 'assistant', content: GREETING_COMPACT }); // compact in history
+    res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: 'greeting' })}\n\n`);
+    res.end();
+    return GREETING_FULL;
+  }
+
+  // ── 5. SCOPE GATE (0 LLM tokens) ───────────────────────────────────────────
+  const priorTurns = getHistory(sid).filter(m => m.role === 'user').length;
+  if (!SCOPE_RE.test(userMessage) && !FOLLOWUP_RE.test(userMessage.trim()) && priorTurns <= 1) {
+    logger.info(`Scope-gate rejected off-topic query: "${userMessage.slice(0, 60)}"`);
+    return streamDirect(res, sid, SCOPE_DENIAL, 'scope-gate');
+  }
+
+  // ── 6. BUILD MESSAGE CONTEXT ────────────────────────────────────────────────
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: buildSystemPrompt() },
     ...history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
     { role: 'user', content: userMessage },
   ];
 
-  // Set up SSE headers
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Session-Id', sid);
-  res.setHeader('X-Accel-Buffering', 'no');
+  setSseHeaders(res, sid);
 
-  let firstResponse: any = null;
-  let modelUsed = '';
-  let allRateLimited = true;
+  // ── 7. STEP 1 — Tool intent resolution ─────────────────────────────────────
+  // Selective schema: send only the 1 most-likely schema (~75 tokens) instead
+  // of all 5 (~380 tokens). Saves ~305 tokens on most requests.
+  //
+  // Safety net: if the LLM tries to call a tool that wasn't offered (400 mismatch),
+  // we retry the SAME model once with all 5 schemas — no user-visible failure.
+  let schemas = selectToolSchemas(userMessage); // start selective
+  let retriedWithAllSchemas = false;            // prevent infinite retry
+  let firstResponse: any    = null;
+  let modelUsed             = '';
+  let allRateLimited        = true;
 
-  // Step 1: Request tool execution intent
   for (let i = 0; i < MODELS.length; i++) {
     const model = MODELS[i];
     try {
-      logger.info(`[Step 1] Attempting tool call intent resolution using model: ${model}`);
+      logger.info(`[Step 1] Intent resolution via ${model}${schemas.length < chatbotTools.length ? ' (selective schema)' : ' (all schemas)'}`);
       const completion = await openai.chat.completions.create({
         model,
         messages,
-        tools: chatbotTools,
-        tool_choice: 'auto',
-        temperature: 0.1,
+        tools       : schemas,
+        tool_choice : 'auto',
+        temperature : 0.1,
       });
-
-      firstResponse = completion.choices[0].message;
-      modelUsed = model;
+      firstResponse  = completion.choices[0].message;
+      modelUsed      = model;
       allRateLimited = false;
-      break; // success
+      break;
     } catch (err: any) {
-      const is429 = err.status === 429 || err.message?.includes('429') || err.message?.includes('rate');
-      logger.warn(`Model ${model} failed intent resolution${is429 ? ' (429 rate-limited)' : ''}: ${err.message}`);
+      const is429          = err.status === 429 || err.message?.includes('429') || err.message?.includes('rate');
+      const isToolMismatch = err.status === 400 && err.message?.includes('not in request.tools');
+      const isDecommissioned = err.message?.includes('decommissioned');
+
+      // ── Tool mismatch: LLM picked a schema we didn't offer ──────────────────
+      // Retry the SAME model once with all 5 schemas. Does not advance i.
+      if (isToolMismatch && !retriedWithAllSchemas) {
+        logger.warn(`[Step 1] Tool mismatch on ${model} — retrying with all schemas`);
+        schemas = chatbotTools;     // expand to full set
+        retriedWithAllSchemas = true;
+        i--;                        // stay on same model index
+        continue;
+      }
+
+      logger.warn(`Model ${model} failed${is429 ? ' (429)' : isDecommissioned ? ' (decommissioned)' : ''}: ${err.message}`);
       if (!is429) allRateLimited = false;
 
       if (i === MODELS.length - 1) {
-        if (allRateLimited) {
-          res.write(`data: ${JSON.stringify({ rateLimited: true })}\n\n`);
-        } else {
-          res.write(`data: ${JSON.stringify({ error: `All free models are temporarily unavailable.` })}\n\n`);
-        }
+        res.write(`data: ${JSON.stringify(
+          allRateLimited
+            ? { rateLimited: true }
+            : { error: 'All free models temporarily unavailable.' }
+        )}\n\n`);
         res.end();
         return '';
       }
-      continue;
     }
   }
 
-  if (!firstResponse) {
-    res.end();
-    return '';
-  }
+  if (!firstResponse) { res.end(); return ''; }
 
-  // Step 2: If model requested a tool call, execute it
-  const toolCalls = firstResponse.tool_calls;
-  if (toolCalls && toolCalls.length > 0) {
-    logger.info(`LLM requested ${toolCalls.length} tool calls using ${modelUsed}`);
-    
-    // Add assistant's tool intent message to conversation list
+  // ── 8. STEP 2 — Execute tool calls ─────────────────────────────────────────
+  if (firstResponse.tool_calls?.length > 0) {
+    logger.info(`LLM requested ${firstResponse.tool_calls.length} tool call(s) via ${modelUsed}`);
     messages.push(firstResponse);
 
-    for (const call of toolCalls) {
+    for (const call of firstResponse.tool_calls) {
       try {
         const args = JSON.parse(call.function.arguments);
-        logger.info(`Running tool "${call.function.name}" with args: ${JSON.stringify(args)}`);
-        
+        logger.info(`Tool "${call.function.name}" args: ${JSON.stringify(args)}`);
         const result = await executeTool(call.function.name, args);
-        
-        // Append tool result to context
+        // Append compressed result — 50–70% fewer tokens vs raw JSON
         messages.push({
-          role: 'tool',
+          role        : 'tool',
           tool_call_id: call.id,
-          content: JSON.stringify(result),
+          content     : compressToolResult(call.function.name, result),
         } as any);
       } catch (err: any) {
-        logger.error(`Error executing tool "${call.function.name}": ${err.message}`);
+        logger.error(`Tool "${call.function.name}" failed: ${err.message}`);
         messages.push({
-          role: 'tool',
+          role        : 'tool',
           tool_call_id: call.id,
-          content: JSON.stringify({ error: err.message }),
+          content     : JSON.stringify({ error: err.message }),
         } as any);
       }
     }
 
-    // Step 3: Stream final answer to user
+    // ── 9. STEP 3 — Stream final formatted answer ───────────────────────────
+    // Replace Step 1 system prompt (~130 tokens) with minimal Step 3 formatter (~35 tokens).
+    // Tool schemas no longer needed here — just a data formatter.
+    messages[0] = { role: 'system', content: buildStep3Prompt() };
+
     let fullResponse = '';
     try {
-      logger.info(`[Step 3] Streaming final response using model: ${modelUsed}`);
+      logger.info(`[Step 3] Streaming final response via ${modelUsed}`);
       const stream = await openai.chat.completions.create({
-        model: modelUsed,
+        model      : modelUsed,
         messages,
-        stream: true,
-        max_tokens: 1024,
+        stream     : true,
+        max_tokens : 700,    // was 1024 — sufficient now responses have no recommendation footer
         temperature: 0.15,
       });
 
@@ -239,35 +229,36 @@ export async function streamAIChat(
         }
       }
 
+      // Truncate history entry to prevent token bloat on future turns.
+      // The full answer was already streamed to the user.
       if (fullResponse) {
-        addMessage(sid, { role: 'assistant', content: fullResponse });
+        const histContent = fullResponse.length > 400
+          ? fullResponse.slice(0, 400) + '…[full response delivered to user]'
+          : fullResponse;
+        addMessage(sid, { role: 'assistant', content: histContent });
       }
 
       res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: modelUsed })}\n\n`);
       res.end();
       return fullResponse;
     } catch (err: any) {
-      logger.error(`Failed to stream final response: ${err.message}`);
-      res.write(`data: ${JSON.stringify({ error: `Connection failed during response streaming.` })}\n\n`);
+      logger.error(`Step 3 stream failed: ${err.message}`);
+      res.write(`data: ${JSON.stringify({ error: 'Connection failed during response streaming.' })}\n\n`);
       res.end();
       return '';
     }
-  } else {
-    // If no tool was called, send the direct response of the first call
-    const content = firstResponse.content || 'I am ready to help you analyze your workforce data. Please let me know how I can assist you.';
-    logger.info(`Direct response generated by ${modelUsed} (no tool called)`);
-    
-    // Simulate streaming for a natural UX or write the entire message in one block
-    const words = content.split(/(\s+)/);
-    for (const word of words) {
-      res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
-      // Tiny delay to make the streaming text effect visible
-      await new Promise(resolve => setTimeout(resolve, 5));
-    }
-
-    addMessage(sid, { role: 'assistant', content });
-    res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: modelUsed })}\n\n`);
-    res.end();
-    return content;
   }
+
+  // ── 10. DIRECT ANSWER — LLM responded without needing a tool ───────────────
+  const content = firstResponse.content
+    || 'I am ready to help you analyze your workforce data. Please let me know how I can assist you.';
+  logger.info(`Direct answer from ${modelUsed} (no tool called)`);
+  for (const word of content.split(/(\s+)/)) {
+    res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
+    await new Promise(r => setTimeout(r, 5));
+  }
+  addMessage(sid, { role: 'assistant', content });
+  res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: modelUsed })}\n\n`);
+  res.end();
+  return content;
 }
