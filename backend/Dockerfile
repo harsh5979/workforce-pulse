@@ -1,7 +1,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
 RUN npm run build
 
@@ -15,7 +15,7 @@ ENV NODE_ENV=production
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --production && npm i tsx drizzle-kit dotenv zod date-fns date-fns-tz papaparse uuid winston cors express helmet morgan pg openai
+RUN npm install --production && npm i tsx drizzle-kit dotenv zod date-fns date-fns-tz papaparse uuid winston cors express helmet morgan pg openai
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
