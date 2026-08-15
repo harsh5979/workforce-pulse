@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { openai, MODELS }          from './ai.config';
-import { buildSystemPrompt,
+import { buildSystemPersona,
+         buildSystemRules,
          buildStep3Prompt }         from './ai.prompts';
 import { compressToolResult }       from './ai.compress';
 import { selectToolSchemas }        from './ai.schema-selector';
@@ -73,7 +74,8 @@ const SCOPE_DENIAL    = 'I am a read-only workforce analytics assistant. I can o
 export async function streamAIChat(
   sessionId: string | null,
   userMessage: string,
-  res: Response
+  res: Response,
+  user?: any
 ): Promise<string> {
 
   // ── 1. SESSION ──────────────────────────────────────────────────────────────
@@ -113,9 +115,13 @@ export async function streamAIChat(
 
   // ── 6. BUILD MESSAGE CONTEXT ────────────────────────────────────────────────
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: buildSystemPrompt() },
-    ...history.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-    { role: 'user', content: userMessage },
+    { role: 'system', content: buildSystemPersona() },
+    ...history.map(m => ({ 
+       role: m.role as 'user' | 'assistant', 
+       content: m.role === 'user' ? `<user_input>\n${m.content}\n</user_input>` : m.content 
+    })),
+    { role: 'user', content: `<user_input>\n${userMessage}\n</user_input>` },
+    { role: 'system', content: buildSystemRules() }
   ];
 
   setSseHeaders(res, sid);
@@ -141,7 +147,7 @@ export async function streamAIChat(
         messages,
         tools       : schemas,
         tool_choice : 'auto',
-        temperature : 0.1,
+        temperature : 0.0,
       });
       firstResponse  = completion.choices[0].message;
       modelUsed      = model;
@@ -169,7 +175,7 @@ export async function streamAIChat(
         res.write(`data: ${JSON.stringify(
           allRateLimited
             ? { rateLimited: true }
-            : { error: 'All free models temporarily unavailable.' }
+            : { error: 'Too many requests due to high traffic. Please try again in a moment.' }
         )}\n\n`);
         res.end();
         return '';
@@ -188,7 +194,7 @@ export async function streamAIChat(
       try {
         const args = JSON.parse(call.function.arguments);
         logger.info(`Tool "${call.function.name}" args: ${JSON.stringify(args)}`);
-        const result = await executeTool(call.function.name, args);
+        const result = await executeTool(call.function.name, args, user);
         // Append compressed result — 50–70% fewer tokens vs raw JSON
         messages.push({
           role        : 'tool',
@@ -217,14 +223,25 @@ export async function streamAIChat(
         model      : modelUsed,
         messages,
         stream     : true,
-        max_tokens : 700,    // was 1024 — sufficient now responses have no recommendation footer
-        temperature: 0.15,
+        max_tokens : 700,
+        temperature: 0.0,
       });
 
+      let streamBlocked = false;
       for await (const chunk of stream) {
+        if (streamBlocked) break;
         const delta = chunk.choices[0]?.delta?.content ?? '';
         if (delta) {
           fullResponse += delta;
+
+          // Output guardrail - intercept if it starts leaking instructions
+          const lowerRes = fullResponse.toLowerCase();
+          if (lowerRes.includes('read-only executive') || lowerRes.includes('absolute rules') || lowerRes.includes('data-grounded')) {
+             res.write(`data: ${JSON.stringify({ error: '\n\n[I am a read-only workforce analytics assistant. I can only provide insights based on employee performance, department metrics, task categories, or automation ROI. Please ask a workforce-related question.]' })}\n\n`);
+             streamBlocked = true;
+             break;
+          }
+
           res.write(`data: ${JSON.stringify({ content: delta, sessionId: sid })}\n\n`);
         }
       }
@@ -243,7 +260,7 @@ export async function streamAIChat(
       return fullResponse;
     } catch (err: any) {
       logger.error(`Step 3 stream failed: ${err.message}`);
-      res.write(`data: ${JSON.stringify({ error: 'Connection failed during response streaming.' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: 'Connection failed due to high traffic. Please try again in a moment.' })}\n\n`);
       res.end();
       return '';
     }

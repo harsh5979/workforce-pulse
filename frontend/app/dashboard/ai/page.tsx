@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Sparkles, ChevronRight, ShieldCheck, CornerDownRight, RotateCcw, ChevronDown, AlertTriangle, RefreshCw, Clock } from 'lucide-react';
 import { SUGGESTED_AI_QUERIES, API_BASE_URL } from '@/lib/constants';
+import DOMPurify from 'dompurify';
 
 interface Message {
   id: string;
@@ -53,8 +54,11 @@ function isPlainKVLine(line: string): { label: string; value: string } | null {
 function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId: string; isStreaming?: boolean }) {
   if (!content) return null;
 
+  // DOMPurify to sanitize ALL incoming text to prevent XSS (even though React escapes, this handles encoded vectors)
+  const safeContent = typeof window !== 'undefined' ? DOMPurify.sanitize(content) : content;
+
   // Clean raw HTML <br> tags into standard line breaks
-  const sanitizedContent = content.replace(/<br\s*\/?>/gi, '\n');
+  const sanitizedContent = safeContent.replace(/<br\s*\/?>/gi, '\n');
 
   // While streaming: show clean text
   if (isStreaming) {
@@ -343,9 +347,14 @@ export default function AIPage() {
       const res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ message: query, sessionId }),
       });
-      if (!res.ok) throw new Error();
+      
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Connection error. The server may be unreachable.');
+      }
 
       const reader = res.body?.getReader();
       const dec = new TextDecoder();
@@ -378,7 +387,7 @@ export default function AIPage() {
               setRateLimitCountdown(30);
               setIsLoading(false); // release UI immediately
             } else if (parsed.error) {
-              acc += `\n**Notice:** ${parsed.error}`;
+              acc += `${parsed.error}`;
               setMessages(p => p.map(m => m.id === aiId ? { ...m, text: acc } : m));
             } else if (parsed.content) {
               acc += parsed.content;
@@ -390,10 +399,10 @@ export default function AIPage() {
       if (!wasRateLimited) {
         setMessages(p => p.map(m => m.id === aiId ? { ...m, isStreaming: false } : m));
       }
-    } catch {
+    } catch (err: any) {
       setMessages(p => p.map(m =>
         m.id === aiId
-          ? { ...m, text: '**Connection error.** The server may be unreachable. Check your deployment and try again.', isStreaming: false }
+          ? { ...m, text: `${err.message || 'Connection error. The server may be unreachable.'}`, isStreaming: false }
           : m
       ));
     } finally {

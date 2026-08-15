@@ -3,7 +3,7 @@ import { activityLogs, employees } from '../../db/schema';
 import { sql, eq, and, desc } from 'drizzle-orm';
 import { detectAnomalies } from '../analytics/anomaly.service';
 
-export async function executeTool(name: string, args: any) {
+export async function executeTool(name: string, args: any, user?: any) {
   switch (name) {
     case 'get_employee_analytics':
       return await handleGetEmployeeAnalytics(args);
