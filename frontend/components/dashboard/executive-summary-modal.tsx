@@ -104,21 +104,21 @@ export function ExecutiveSummaryModal({ isOpen, onClose }: ExecutiveSummaryModal
         }
         .no-print { display: none !important; }
         
-        .text-white, .text-slate-100, .text-slate-200, .text-slate-300 { color: #000000 !important; }
-        .text-slate-400, .text-slate-500 { color: #475569 !important; }
+        .text-foreground, .text-foreground, .text-foreground, .text-foreground { color: #000000 !important; }
+        .text-muted-foreground, .text-muted-foreground { color: #475569 !important; }
         
-        .text-emerald-400, .print-val-green { color: #059669 !important; font-weight: 900 !important; }
-        .text-amber-400, .text-amber-300, .print-val-amber, .print-val-inr { color: #b45309 !important; font-weight: 900 !important; }
+        .text-primary, .print-val-green { color: #059669 !important; font-weight: 900 !important; }
+        .text-accent, .text-accent, .print-val-amber, .print-val-inr { color: #b45309 !important; font-weight: 900 !important; }
         
-        .bg-slate-900, .bg-slate-950\\/80, .bg-slate-950\\/90 { background-color: #ffffff !important; }
-        .bg-slate-800 { background-color: #f1f5f9 !important; }
+        .bg-muted, .bg-card\\/80, .bg-card\\/90 { background-color: #ffffff !important; }
+        .bg-muted/50 { background-color: #f1f5f9 !important; }
         .bg-gradient-to-r, .bg-gradient-to-br { background: #ffffff !important; }
-        .hover\\:bg-slate-900\\/60:hover, tr.hover\\:bg-slate-900\\/60 { background-color: #f8fafc !important; }
+        .hover\\:bg-muted\\/60:hover, tr.hover\\:bg-muted\\/60 { background-color: #f8fafc !important; }
         
-        .border-slate-800, .border-slate-800\\/80, .border-slate-700 { border-color: #e2e8f0 !important; }
+        .border-border, .border-border\\/80, .border-border { border-color: #e2e8f0 !important; }
         .divide-slate-800\\/60 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0 !important; }
         
-        .bg-emerald-500\\/20, .bg-emerald-500\\/15 { background-color: #d1fae5 !important; border-color: #34d399 !important; }
+        .bg-primary\\/20, .bg-primary\\/15 { background-color: #d1fae5 !important; border-color: #34d399 !important; }
         .bg-amber-500\\/20 { background-color: #fef3c7 !important; border-color: #fbbf24 !important; }
         .bg-slate-400\\/20 { background-color: #f1f5f9 !important; border-color: #cbd5e1 !important; color: #475569 !important; }
         
@@ -162,7 +162,7 @@ export function ExecutiveSummaryModal({ isOpen, onClose }: ExecutiveSummaryModal
             // ── Layout: flex-col keeps toolbar pinned, body scrolls ──
             'flex flex-col',
             // ── Appearance ──────────────────────────────────────────
-            'bg-card border border-border/60 rounded-2xl shadow-2xl',
+            'bg-card border border-border/60 rounded-none shadow-2xl',
             // ── Reset shadcn defaults ────────────────────────────────
             'p-0 gap-0 overflow-hidden',
           ].join(' ')}
@@ -177,7 +177,7 @@ export function ExecutiveSummaryModal({ isOpen, onClose }: ExecutiveSummaryModal
           <div className="no-print shrink-0 flex flex-wrap items-center justify-between gap-3 px-5 py-3 bg-muted/50 border-b border-border/60">
             {/* Left: title block */}
             <div className="flex items-center gap-3 min-w-0">
-              <div className="p-2 rounded-lg bg-primary/20 text-primary border border-primary/30 shrink-0">
+              <div className="p-2 rounded-none bg-primary/20 text-primary border border-primary/30 shrink-0">
                 <FileText className="w-4 h-4" />
               </div>
               <div className="min-w-0">
@@ -205,7 +205,7 @@ export function ExecutiveSummaryModal({ isOpen, onClose }: ExecutiveSummaryModal
               <Button
                 size="sm"
                 onClick={handlePrintPdf}
-                className="h-8 gap-1.5 text-xs bg-gradient-to-r from-primary to-emerald-500 hover:opacity-90"
+                className="h-8 gap-1.5 text-xs bg-primary hover:opacity-90"
               >
                 <Printer className="w-3.5 h-3.5" />
                 Save PDF
@@ -224,77 +224,77 @@ export function ExecutiveSummaryModal({ isOpen, onClose }: ExecutiveSummaryModal
           </div>
 
           {/* ══ BODY — flex-1 + overflow-y-auto: only this scrolls ══════ */}
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-slate-950/70">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-muted/70">
             <div className="p-5">
               {/* ── Printable report card ─────────────────────── */}
               <div
                 id="exec-report"
                 ref={reportRef}
-                className="bg-slate-900 border border-slate-800 text-slate-100 rounded-2xl p-6 space-y-5"
+                className="bg-muted border border-border text-foreground rounded-none p-6 space-y-5"
               >
 
                 {/* Header row */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-border">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                    <div className="p-3 rounded-none bg-primary/20 text-primary border border-primary/30 shrink-0">
                       <Flame className="w-6 h-6" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[11px] font-bold font-mono uppercase tracking-widest text-emerald-400">
+                        <span className="text-[11px] font-bold font-mono uppercase tracking-widest text-primary">
                           Workforce Pulse
                         </span>
-                        <Badge variant="outline" className="text-[10px] font-mono border-slate-700 text-slate-300 bg-slate-800 px-1.5 py-0">
+                        <Badge variant="outline" className="text-[10px] font-mono border-border text-foreground bg-muted/50 px-1.5 py-0">
                           Confidential Executive Audit
                         </Badge>
                       </div>
-                      <h1 className="text-lg sm:text-xl font-black text-white tracking-tight mt-0.5 leading-tight">
+                      <h1 className="text-lg sm:text-xl font-black text-foreground tracking-tight mt-0.5 leading-tight">
                         Operational Productivity &amp; Automation ROI Summary
                       </h1>
                     </div>
                   </div>
-                  <div className="sm:text-right sm:border-l sm:border-slate-800 sm:pl-5 shrink-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Report Date</p>
-                    <p className="text-sm font-mono font-bold text-white">{generatedDate}</p>
-                    <p className="text-[10px] font-mono text-emerald-400 mt-1 flex items-center sm:justify-end gap-1">
+                  <div className="sm:text-right sm:border-l sm:border-border sm:pl-5 shrink-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Report Date</p>
+                    <p className="text-sm font-mono font-bold text-foreground">{generatedDate}</p>
+                    <p className="text-[10px] font-mono text-primary mt-1 flex items-center sm:justify-end gap-1">
                       <CheckCircle2 className="w-3 h-3" /> Verified Database Telemetry
                     </p>
                   </div>
                 </div>
 
                 {/* Scope bar */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-muted/80 rounded-none border border-border text-xs">
                   {[
-                    { icon: <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />, label: 'Department Scope',     value: scopeDepartment },
-                    { icon: <Cpu       className="w-3.5 h-3.5 text-amber-400 shrink-0"   />, label: 'Task Taxonomy Filter',  value: scopeCategory   },
+                    { icon: <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />, label: 'Department Scope',     value: scopeDepartment },
+                    { icon: <Cpu       className="w-3.5 h-3.5 text-accent shrink-0"   />, label: 'Task Taxonomy Filter',  value: scopeCategory   },
                     { icon: <Calendar  className="w-3.5 h-3.5 text-primary shrink-0"     />, label: 'Audit Date Range',     value: dateRangeStr    },
                   ].map(({ icon, label, value }, i) => (
-                    <div key={i} className={`flex items-center gap-2 ${i > 0 ? 'sm:border-l sm:border-slate-800 sm:pl-3' : ''}`}>
+                    <div key={i} className={`flex items-center gap-2 ${i > 0 ? 'sm:border-l sm:border-border sm:pl-3' : ''}`}>
                       {icon}
                       <div className="min-w-0">
-                        <p className="text-[10px] uppercase font-bold text-slate-400 leading-none">{label}</p>
-                        <p className="font-bold font-mono text-white truncate mt-0.5">{value}</p>
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground leading-none">{label}</p>
+                        <p className="font-bold font-mono text-foreground truncate mt-0.5">{value}</p>
                       </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Strategic narrative */}
-                <div className="relative p-4 rounded-xl bg-gradient-to-r from-slate-900 via-emerald-950/30 to-slate-900 border border-emerald-500/40 overflow-hidden">
-                  <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500 rounded-l-xl" />
+                <div className="relative p-4 rounded-none bg-muted border border-primary/40 overflow-hidden">
+                  <div className="absolute top-0 left-0 w-2 h-full bg-primary rounded-l-xl" />
                   <div className="pl-3 space-y-1.5">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5" /> C-Suite Strategic Verdict
                     </h2>
-                    <p className="text-xs text-slate-200 leading-relaxed">
-                      Across <strong className="text-white">{scopeDepartment}</strong>, our audit tracked{' '}
-                      <strong className="text-white font-mono">{formatHours(totalHours)}</strong> of total execution.
+                    <p className="text-xs text-foreground leading-relaxed">
+                      Across <strong className="text-foreground">{scopeDepartment}</strong>, our audit tracked{' '}
+                      <strong className="text-foreground font-mono">{formatHours(totalHours)}</strong> of total execution.
                       Of this,{' '}
-                      <strong className="text-emerald-400 font-mono print-val-green">
+                      <strong className="text-primary font-mono print-val-green">
                         {formatHours(repHours)} ({formatPct(repShare)})
                       </strong>{' '}
                       is repetitive, recoverable digital labor. Targeted automation would unlock an estimated{' '}
-                      <strong className="text-amber-300 font-mono print-val-inr">
+                      <strong className="text-accent font-mono print-val-inr">
                         {formatINR(potentialSavings)} annualized
                       </strong>{' '}
                       without headcount changes.
@@ -305,35 +305,35 @@ export function ExecutiveSummaryModal({ isOpen, onClose }: ExecutiveSummaryModal
                 {/* 4 KPI cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {([
-                    { label: 'Total Activity',    value: formatHours(totalHours),    sub: 'Operational time',         cls: 'text-white',     wrap: '' },
-                    { label: 'Repetitive Friction',value: formatHours(repHours),     sub: 'Manual rule-based labor',  cls: 'text-emerald-400 print-val-green', wrap: '' },
-                    { label: 'Repetitive Share',  value: formatPct(repShare),        sub: 'Automation eligibility',   cls: 'text-amber-400 print-val-amber',   wrap: '' },
-                    { label: 'Annual Recovery',   value: formatINR(potentialSavings),sub: 'Estimated financial ROI',  cls: 'text-amber-300 print-val-inr',     wrap: 'bg-gradient-to-br from-emerald-500/20 to-slate-950 border-emerald-500/40' },
+                    { label: 'Total Activity',    value: formatHours(totalHours),    sub: 'Operational time',         cls: 'text-foreground',     wrap: '' },
+                    { label: 'Repetitive Friction',value: formatHours(repHours),     sub: 'Manual rule-based labor',  cls: 'text-primary print-val-green', wrap: '' },
+                    { label: 'Repetitive Share',  value: formatPct(repShare),        sub: 'Automation eligibility',   cls: 'text-accent print-val-amber',   wrap: '' },
+                    { label: 'Annual Recovery',   value: formatINR(potentialSavings),sub: 'Estimated financial ROI',  cls: 'text-accent print-val-inr',     wrap: 'bg-primary/10 border-primary/40' },
                   ] as const).map(({ label, value, sub, cls, wrap }) => (
-                    <div key={label} className={`p-4 rounded-xl border ${wrap || 'bg-slate-950/90 border-slate-800/80'}`}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+                    <div key={label} className={`p-4 rounded-none border ${wrap || 'bg-muted border-border'}`}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
                       <p className={`text-xl sm:text-2xl font-mono font-extrabold mt-1 tabular-nums ${cls}`}>{value}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>
                     </div>
                   ))}
                 </div>
 
-                <Separator className="bg-slate-800" />
+                <Separator className="bg-muted/50" />
 
                 {/* Top-5 table */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                      <Award className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-accent" />
                       Top-5 Automation Candidates
                     </h3>
-                    <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">Ranked by Repetitive Volume</span>
+                    <span className="text-[11px] text-muted-foreground font-mono hidden sm:inline">Ranked by Repetitive Volume</span>
                   </div>
 
-                  <div className="rounded-xl border border-slate-800 overflow-x-auto touch-pan-x scrollbar-thin">
+                  <div className="rounded-none border border-border overflow-x-auto touch-pan-x scrollbar-thin">
                     <table className="w-full text-left text-xs border-collapse min-w-[480px]">
                       <thead>
-                        <tr className="bg-slate-900 border-b border-slate-800 text-slate-300 uppercase text-[11px] tracking-wider font-bold">
+                        <tr className="bg-muted border-b border-border text-foreground uppercase text-[11px] tracking-wider font-bold">
                           <th className="py-2.5 px-3 w-10 text-center">#</th>
                           <th className="py-2.5 px-3">Workflow Category</th>
                           <th className="py-2.5 px-3 text-right">Rep. Time</th>
@@ -345,32 +345,32 @@ export function ExecutiveSummaryModal({ isOpen, onClose }: ExecutiveSummaryModal
                       <tbody className="divide-y divide-slate-800/60">
                         {topOpportunities.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-8 text-center text-slate-500">
+                            <td colSpan={6} className="py-8 text-center text-muted-foreground">
                               No ranking records for active filters.
                             </td>
                           </tr>
                         ) : (
                           topOpportunities.map((op: any, i: number) => {
                             const badge = i === 0
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              ? 'bg-accent/20 text-accent border-accent/40'
                               : i === 1
-                              ? 'bg-slate-400/20 text-slate-200 border-slate-400/40'
-                              : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+                              ? 'bg-slate-400/20 text-foreground border-slate-400/40'
+                              : 'bg-primary/15 text-primary border-primary/30';
                             const name    = op.category ?? op.subject ?? op.name ?? 'Workflow';
                             const rHours  = Number(op.repetitiveHours ?? op.repHours ?? 0);
                             const rShare  = Number(op.repetitiveShare ?? op.repShare ?? 0);
                             return (
-                              <tr key={i} className="hover:bg-slate-900/60 transition-colors">
-                                <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-400">#{i + 1}</td>
-                                <td className="py-2.5 px-3 font-bold text-white font-mono">{name}</td>
-                                <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400 tabular-nums print-val-green">{formatHours(rHours)}</td>
-                                <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-300 tabular-nums print-val-amber">{formatPct(rShare)}</td>
+                              <tr key={i} className="hover:bg-muted/60 transition-colors">
+                                <td className="py-2.5 px-3 text-center font-mono font-bold text-muted-foreground">#{i + 1}</td>
+                                <td className="py-2.5 px-3 font-bold text-foreground font-mono">{name}</td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-primary tabular-nums print-val-green">{formatHours(rHours)}</td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-accent tabular-nums print-val-amber">{formatPct(rShare)}</td>
                                 <td className="py-2.5 px-3 text-center">
                                   <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase border font-mono ${badge}`}>
                                     {scoreLabel(op.score || (0.95 - i * 0.05))}
                                   </span>
                                 </td>
-                                <td className="py-2.5 px-3 text-[11px] text-slate-300 leading-snug hidden lg:table-cell">
+                                <td className="py-2.5 px-3 text-[11px] text-foreground leading-snug hidden lg:table-cell">
                                   {ACTION_RECOMMENDATIONS[i % ACTION_RECOMMENDATIONS.length]}
                                 </td>
                               </tr>
@@ -383,7 +383,7 @@ export function ExecutiveSummaryModal({ isOpen, onClose }: ExecutiveSummaryModal
                 </div>
 
                 {/* Footer */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800 text-[10px] text-slate-500 font-mono">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border text-[10px] text-muted-foreground font-mono">
                   <span>WORKFORCE PULSE AUDIT TELEMETRY · STRICTLY CONFIDENTIAL</span>
                   <span>PAGE 1 OF 1 · VALIDATED EXECUTIVE SUMMARY</span>
                 </div>

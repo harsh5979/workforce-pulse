@@ -22,15 +22,15 @@ function renderInline(text: string, key: string) {
   return parts.filter(Boolean).map((part, i) => {
     const k = `${key}-${i}`;
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4)
-      return <strong key={k} className="font-bold text-white">{part.slice(2, -2)}</strong>;
+      return <strong key={k} className="font-bold text-primary-foreground">{part.slice(2, -2)}</strong>;
     if (part.startsWith('*') && part.endsWith('*') && !part.startsWith('**') && part.length > 2)
-      return <em key={k} className="italic text-slate-300">{part.slice(1, -1)}</em>;
+      return <em key={k} className="italic text-foreground">{part.slice(1, -1)}</em>;
     if (part.startsWith('`') && part.endsWith('`') && part.length > 2)
-      return <code key={k} className="font-mono text-[11px] bg-slate-900 text-amber-300 px-1.5 py-0.5 rounded border border-slate-700">{part.slice(1, -1)}</code>;
+      return <code key={k} className="font-mono text-[11px] bg-muted text-accent px-1.5 py-0.5 rounded border border-border">{part.slice(1, -1)}</code>;
     if (part.startsWith('₹'))
-      return <span key={k} className="font-mono font-black text-amber-400">{part}</span>;
+      return <span key={k} className="font-mono font-black text-accent">{part}</span>;
     if (/\b[\d.]+\s*(?:hrs?|hours?)\b/.test(part))
-      return <span key={k} className="font-mono font-bold text-emerald-400">{part}</span>;
+      return <span key={k} className="font-mono font-bold text-primary">{part}</span>;
     return <span key={k}>{part}</span>;
   });
 }
@@ -63,7 +63,7 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
   // While streaming: show clean text
   if (isStreaming) {
     return (
-      <p className="text-sm text-slate-200 leading-relaxed font-sans whitespace-pre-wrap">
+      <p className="text-sm text-foreground leading-relaxed font-sans whitespace-pre-wrap">
         {sanitizedContent}
       </p>
     );
@@ -95,12 +95,12 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
 
       if (headers.length > 0 && dataRows.length > 0) {
         out.push(
-          <div key={`tbl-${msgId}-${i}`} className="my-3 overflow-x-auto max-w-full rounded-xl border border-slate-700/80 shadow-lg touch-pan-x scrollbar-thin">
+          <div key={`tbl-${msgId}-${i}`} className="my-3 overflow-x-auto max-w-full rounded-none border border-border/80 shadow-lg touch-pan-x scrollbar-thin">
             <table className="w-full min-w-[460px] text-left border-collapse text-[11px] sm:text-xs">
               <thead>
-                <tr className="bg-gradient-to-r from-slate-800 to-slate-900 border-b border-slate-700">
+                <tr className="bg-muted border-b border-border">
                   {headers.map((h, hi) => (
-                    <th key={hi} className={`py-2.5 px-3 sm:py-3 sm:px-4 font-bold text-emerald-400 uppercase tracking-wider text-[10px] sm:text-[11px] whitespace-nowrap ${hi === 0 ? 'rounded-tl-xl' : ''} ${hi === headers.length - 1 ? 'rounded-tr-xl' : ''}`}>
+                    <th key={hi} className={`py-2.5 px-3 sm:py-3 sm:px-4 font-bold text-primary uppercase tracking-wider text-[10px] sm:text-[11px] whitespace-nowrap ${hi === 0 ? 'rounded-none' : ''} ${hi === headers.length - 1 ? 'rounded-none' : ''}`}>
                       {h.replace(/\*/g, '')}
                     </th>
                   ))}
@@ -108,9 +108,9 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
               </thead>
               <tbody>
                 {dataRows.map((row, ri) => (
-                  <tr key={ri} className={`border-b border-slate-800/80 transition-colors hover:bg-emerald-500/5 ${ri % 2 === 0 ? 'bg-slate-950/60' : 'bg-slate-900/40'}`}>
+                  <tr key={ri} className={`border-b border-border transition-colors hover:bg-primary/5 ${ri % 2 === 0 ? 'bg-card' : 'bg-background/60'}`}>
                     {row.map((cell, ci) => (
-                      <td key={ci} className={`py-2 px-3 sm:py-3 sm:px-4 ${ci === 0 ? 'font-semibold text-white' : 'text-slate-300'}`}>
+                      <td key={ci} className={`py-2 px-3 sm:py-3 sm:px-4 ${ci === 0 ? 'font-semibold text-primary-foreground' : 'text-foreground'}`}>
                         {renderInline(cell, `${msgId}-${ri}-${ci}`)}
                       </td>
                     ))}
@@ -118,7 +118,7 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
                 ))}
               </tbody>
             </table>
-            <div className="px-3 sm:px-4 py-2 bg-slate-900/80 border-t border-slate-700/60 text-[10px] text-slate-400 font-mono rounded-b-xl">
+            <div className="px-3 sm:px-4 py-2 bg-card border-t border-border/60 text-[10px] text-muted-foreground font-mono rounded-none">
               {dataRows.length} row{dataRows.length !== 1 ? 's' : ''} · sourced from normalized workforce telemetry
             </div>
           </div>
@@ -131,9 +131,9 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
     if (/^#{1,3}\s/.test(line) || (line.startsWith('**') && line.endsWith('**') && !line.slice(2, -2).includes('**'))) {
       const title = line.replace(/^#+\s*/, '').replace(/^\*\*|\*\*$/g, '').trim();
       out.push(
-        <div key={`hdr-${msgId}-${i}`} className="flex items-center gap-2 mt-4 mb-2 first:mt-0 pb-2 border-b border-slate-700/60">
-          <div className="w-1 h-4 rounded-full bg-emerald-400 shrink-0" />
-          <h4 className="text-xs font-extrabold uppercase tracking-widest text-emerald-300 font-mono">
+        <div key={`hdr-${msgId}-${i}`} className="flex items-center gap-2 mt-4 mb-2 first:mt-0 pb-2 border-b border-border/60">
+          <div className="w-1 h-4 rounded-none bg-emerald-400 shrink-0" />
+          <h4 className="text-xs font-extrabold uppercase tracking-widest text-primary font-mono">
             {title}
           </h4>
         </div>
@@ -164,16 +164,16 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
 
       if (kvGroup.length > 0) {
         out.push(
-          <div key={`kv-card-${msgId}-${i}`} className="my-3 rounded-xl border border-slate-700/70 overflow-hidden shadow-md bg-slate-950/60">
+          <div key={`kv-card-${msgId}-${i}`} className="my-3 rounded-none border border-border/70 overflow-hidden shadow-md bg-card">
             {kvGroup.map((kv, ki) => (
               <div
                 key={ki}
-                className={`flex items-start gap-3 px-4 py-2.5 ${ki < kvGroup.length - 1 ? 'border-b border-slate-800/80' : ''} ${ki % 2 === 0 ? 'bg-slate-950/40' : 'bg-slate-900/30'} hover:bg-emerald-500/5 transition-colors`}
+                className={`flex items-start gap-3 px-4 py-2.5 ${ki < kvGroup.length - 1 ? 'border-b border-border' : ''} ${ki % 2 === 0 ? 'bg-background/40' : 'bg-background/40'} hover:bg-primary/5 transition-colors`}
               >
-                <span className="text-[11px] font-bold text-slate-400 font-mono shrink-0 pt-0.5 min-w-[130px] leading-snug">
+                <span className="text-[11px] font-bold text-muted-foreground font-mono shrink-0 pt-0.5 min-w-[130px] leading-snug">
                   {kv.label}
                 </span>
-                <span className="text-sm font-semibold text-white font-sans leading-snug flex-1">
+                <span className="text-sm font-semibold text-primary-foreground font-sans leading-snug flex-1">
                   {renderInline(kv.value, `kv-${msgId}-${ki}`)}
                 </span>
               </div>
@@ -185,8 +185,8 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
       if (plainBullets.length > 0) {
         plainBullets.forEach((item, pi) => {
           out.push(
-            <div key={`li-${msgId}-${i}-${pi}`} className="flex items-start gap-2.5 py-1 text-sm text-slate-200 leading-relaxed">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-[7px]" />
+            <div key={`li-${msgId}-${i}-${pi}`} className="flex items-start gap-2.5 py-1 text-sm text-foreground leading-relaxed">
+              <div className="w-1.5 h-1.5 rounded-none bg-emerald-400 shrink-0 mt-[7px]" />
               <span className="font-sans">{renderInline(item, `li-${msgId}-${pi}`)}</span>
             </div>
           );
@@ -211,16 +211,16 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
         }
         if (kvGroup.length > 0) {
           out.push(
-            <div key={`pkv-card-${msgId}-${i}`} className="my-3 rounded-xl border border-slate-700/70 overflow-hidden shadow-md bg-slate-950/60">
+            <div key={`pkv-card-${msgId}-${i}`} className="my-3 rounded-none border border-border/70 overflow-hidden shadow-md bg-card">
               {kvGroup.map((kv, ki) => (
                 <div
                   key={ki}
-                  className={`flex items-start gap-3 px-4 py-2.5 ${ki < kvGroup.length - 1 ? 'border-b border-slate-800/80' : ''} ${ki % 2 === 0 ? 'bg-slate-950/40' : 'bg-slate-900/30'}`}
+                  className={`flex items-start gap-3 px-4 py-2.5 ${ki < kvGroup.length - 1 ? 'border-b border-border' : ''} ${ki % 2 === 0 ? 'bg-background/40' : 'bg-background/40'}`}
                 >
-                  <span className="text-[11px] font-bold text-slate-400 font-mono shrink-0 pt-0.5 min-w-[130px] leading-snug">
+                  <span className="text-[11px] font-bold text-muted-foreground font-mono shrink-0 pt-0.5 min-w-[130px] leading-snug">
                     {kv.label}
                   </span>
-                  <span className="text-sm font-semibold text-white font-sans leading-snug flex-1">
+                  <span className="text-sm font-semibold text-primary-foreground font-sans leading-snug flex-1">
                     {renderInline(kv.value, `pkv-${msgId}-${ki}`)}
                   </span>
                 </div>
@@ -234,7 +234,7 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
 
     // ── 5. NORMAL PARAGRAPH ───────────────────────────────────────────────────
     out.push(
-      <p key={`p-${msgId}-${i}`} className="text-sm text-slate-300 leading-relaxed my-1.5 font-sans">
+      <p key={`p-${msgId}-${i}`} className="text-sm text-foreground leading-relaxed my-1.5 font-sans">
         {renderInline(line, `p-${msgId}-${i}`)}
       </p>
     );
@@ -425,15 +425,15 @@ export default function AIPage() {
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 animate-fade-in overflow-hidden relative sm:rounded-xl border-0 sm:border border-border/50 shadow-sm bg-card">
+    <div className="flex flex-col h-full min-h-0 animate-fade-in overflow-hidden relative sm:rounded-none border-0 sm:border border-border/50 shadow-sm bg-card">
 
       {/* Messages Area — Scrollable thread. flex-col (no justify-end) so content starts top and scrolls naturally on mobile */}
-      <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-3 sm:px-6 bg-slate-950/40 relative" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-3 sm:px-6 bg-background/40 relative" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* New Session Button Floating Top Right */}
         <div className="sticky top-0 z-10 flex justify-end pt-3 pb-1 pointer-events-none">
           <button
             onClick={clearChat}
-            className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl bg-card/90 hover:bg-muted backdrop-blur-md text-muted-foreground hover:text-foreground border border-border/70 text-[11px] sm:text-xs font-bold transition-all shadow-md active:scale-95"
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-none bg-card/90 hover:bg-muted backdrop-blur-md text-muted-foreground hover:text-foreground border border-border/70 text-[11px] sm:text-xs font-bold transition-all shadow-md active:scale-95"
           >
             <RotateCcw className="w-3.5 h-3.5 text-primary" />
             <span>New Session</span>
@@ -445,9 +445,9 @@ export default function AIPage() {
           {messages.map((m) => (
             <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`w-full max-w-[94%] sm:max-w-[85%] lg:max-w-[78%] rounded-2xl px-3.5 py-3 sm:px-5 sm:py-4 ${m.sender === 'user'
-                  ? 'bg-gradient-to-br from-primary/25 to-blue-600/20 border border-primary/40 text-white rounded-tr-none ml-auto shadow-md'
-                  : 'bg-card border border-border/70 text-foreground rounded-tl-none shadow-md'
+                className={`w-full max-w-[94%] sm:max-w-[85%] lg:max-w-[78%] rounded-none px-3.5 py-3 sm:px-5 sm:py-4 ${m.sender === 'user'
+                  ? 'bg-primary border border-primary/40 text-primary-foreground  ml-auto shadow-md'
+                  : 'bg-card border border-border/70 text-foreground  shadow-md'
                   }`}
               >
                 {m.sender === 'user' ? (
@@ -457,11 +457,11 @@ export default function AIPage() {
                     {/* ── Rate-limit inline bubble ── */}
                     {m.isRateLimited ? (
                       <div className="space-y-3">
-                        <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                        <div className="flex items-start gap-3 p-3 rounded-none bg-amber-500/10 border border-amber-500/30">
+                          <AlertTriangle className="w-4 h-4 text-accent shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-amber-300">All free AI models are rate-limited (429)</p>
-                            <p className="text-[11px] text-amber-400/80 font-mono mt-0.5">
+                            <p className="text-xs font-bold text-accent">All free AI models are rate-limited (429)</p>
+                            <p className="text-[11px] text-accent/80 font-mono mt-0.5">
                               Too many requests hit the free tier. {retryCountRef.current >= 2
                                 ? 'Maximum auto-retries reached. Please try again manually in a minute.'
                                 : rateLimitCountdown !== null && rateLimitMsgId === m.id
@@ -473,20 +473,20 @@ export default function AIPage() {
                         {/* Progress bar for countdown */}
                         {rateLimitCountdown !== null && rateLimitMsgId === m.id && retryCountRef.current < 2 && (
                           <div className="space-y-1.5">
-                            <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                            <div className="h-1.5 w-full rounded-none bg-muted overflow-hidden">
                               <div
-                                className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-1000 ease-linear"
+                                className="h-full rounded-none bg-accent transition-all duration-1000 ease-linear"
                                 style={{ width: `${(rateLimitCountdown / 30) * 100}%` }}
                               />
                             </div>
                             <div className="flex items-center justify-between gap-2">
-                              <span className="flex items-center gap-1.5 text-[11px] text-amber-400/70 font-mono">
+                              <span className="flex items-center gap-1.5 text-[11px] text-accent/70 font-mono">
                                 <Clock className="w-3 h-3" />
                                 Auto-retry in {rateLimitCountdown}s
                               </span>
                               <button
                                 onClick={retryNow}
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-amber-300 text-[11px] font-bold transition-all active:scale-95"
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-none bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-accent text-[11px] font-bold transition-all active:scale-95"
                               >
                                 <RefreshCw className="w-3 h-3" />
                                 Retry Now
@@ -498,7 +498,7 @@ export default function AIPage() {
                         {rateLimitCountdown === null && retryCountRef.current < 2 && rateLimitMsgId === m.id && (
                           <button
                             onClick={retryNow}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all active:scale-95"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-accent text-xs font-bold transition-all active:scale-95"
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
                             Retry
@@ -513,22 +513,22 @@ export default function AIPage() {
                             <div className="flex flex-col gap-3 py-1">
                               <div className="flex items-center gap-2 text-muted-foreground text-xs font-mono">
                                 <span className="flex gap-1">
-                                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
-                                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
-                                  <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+                                  <span className="w-2 h-2 rounded-none bg-primary animate-bounce [animation-delay:0ms]" />
+                                  <span className="w-2 h-2 rounded-none bg-primary animate-bounce [animation-delay:150ms]" />
+                                  <span className="w-2 h-2 rounded-none bg-primary animate-bounce [animation-delay:300ms]" />
                                 </span>
                                 <span className="animate-pulse">Analyzing workforce data...</span>
                               </div>
                               <div className="space-y-2 opacity-25">
-                                <div className="h-2 bg-muted rounded-full w-3/4 animate-pulse" />
-                                <div className="h-2 bg-muted rounded-full w-full animate-pulse [animation-delay:150ms]" />
-                                <div className="h-2 bg-muted rounded-full w-5/6 animate-pulse [animation-delay:300ms]" />
+                                <div className="h-2 bg-muted rounded-none w-3/4 animate-pulse" />
+                                <div className="h-2 bg-muted rounded-none w-full animate-pulse [animation-delay:150ms]" />
+                                <div className="h-2 bg-muted rounded-none w-5/6 animate-pulse [animation-delay:300ms]" />
                               </div>
                             </div>
                           ) : (
                             /* ── Phase 2: Tokens arriving — show plain text immediately ── */
                             <div className="space-y-2">
-                              <p className="text-sm text-slate-200 leading-relaxed font-sans whitespace-pre-wrap">
+                              <p className="text-sm text-foreground leading-relaxed font-sans whitespace-pre-wrap">
                                 {m.text}
                                 {/* Blinking cursor */}
                                 <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse align-middle" />
@@ -541,7 +541,7 @@ export default function AIPage() {
                             <AIMessageBody content={m.text} msgId={m.id} isStreaming={false} />
                             {m.id !== 'welcome' && (
                               <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-border/40 text-[11px] text-muted-foreground font-mono">
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
                                 <span>Grounded on database records</span>
                               </div>
                             )}
@@ -565,14 +565,14 @@ export default function AIPage() {
         {rateLimitCountdown !== null && (
           <div className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/8 border-b border-amber-500/20 animate-fade-in">
             <div className="flex items-center gap-2 min-w-0">
-              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
-              <p className="text-[11px] font-mono text-amber-400/80">
-                Rate-limited · Auto-retrying in <span className="font-black text-amber-300">{rateLimitCountdown}s</span>
+              <Clock className="w-3.5 h-3.5 text-accent shrink-0 animate-pulse" />
+              <p className="text-[11px] font-mono text-accent/80">
+                Rate-limited · Auto-retrying in <span className="font-black text-accent">{rateLimitCountdown}s</span>
               </p>
             </div>
             <button
               onClick={() => { setRateLimitCountdown(null); setPendingRetryQuery(null); }}
-              className="text-[10px] font-bold text-amber-400/60 hover:text-amber-300 font-mono transition-colors shrink-0"
+              className="text-[10px] font-bold text-accent/60 hover:text-accent font-mono transition-colors shrink-0"
             >
               Cancel
             </button>
@@ -580,14 +580,14 @@ export default function AIPage() {
         )}
 
         {/* Collapsible Suggested Prompts Accordion Bar */}
-        <div className="border-b border-border/50 bg-slate-950/60">
+        <div className="border-b border-border/50 bg-card">
           <button
             type="button"
             onClick={() => setIsSuggestionsOpen(!isSuggestionsOpen)}
             className="w-full px-3 sm:px-6 py-2 flex items-center justify-between text-xs font-bold text-muted-foreground hover:text-foreground transition-colors group"
           >
-            <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] sm:text-[11px] text-emerald-400">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] sm:text-[11px] text-primary">
+              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
               <span>Suggested Prompts ({SUGGESTED_AI_QUERIES.length})</span>
             </span>
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground group-hover:text-primary transition-colors">
@@ -603,7 +603,7 @@ export default function AIPage() {
                   <button
                     key={idx}
                     onClick={() => sendMessage(q)}
-                    className="text-left text-xs py-2 px-3.5 rounded-xl bg-muted/40 hover:bg-muted/80 border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground font-sans font-medium transition-all flex items-center justify-between gap-2 group shadow-sm overflow-hidden"
+                    className="text-left text-xs py-2 px-3.5 rounded-none bg-muted/40 hover:bg-muted/80 border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground font-sans font-medium transition-all flex items-center justify-between gap-2 group shadow-sm overflow-hidden"
                   >
                     <span className="truncate sm:line-clamp-2 sm:whitespace-normal leading-snug">{q}</span>
                     <ChevronRight className="w-3.5 h-3.5 text-primary shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
@@ -612,9 +612,9 @@ export default function AIPage() {
               </div>
               {/* <button
                 onClick={() => sendMessage('and break that down by department')}
-                className="text-[11px] py-1.5 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-300 font-mono font-semibold transition-all flex items-center gap-2"
+                className="text-[11px] py-1.5 px-3 rounded-none bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-primary font-mono font-semibold transition-all flex items-center gap-2"
               >
-                <CornerDownRight className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <CornerDownRight className="w-3.5 h-3.5 text-primary shrink-0" />
                 <span>Follow-up: &quot;and break that down by department&quot;</span>
               </button> */}
             </div>
@@ -633,14 +633,14 @@ export default function AIPage() {
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
               placeholder="Ask about repetitive tasks, automation ROI..."
-              className="flex-1 bg-slate-950/90 border border-border/80 rounded-xl px-4 py-3.5 sm:px-5 sm:py-4 text-sm sm:text-base text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all font-sans shadow-inner min-w-0"
+              className="flex-1 bg-background border border-border/80 rounded-none px-4 py-3.5 sm:px-5 sm:py-4 text-sm sm:text-base text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all font-sans shadow-inner min-w-0"
             />
             <button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className="p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-primary to-emerald-500 text-slate-950 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 shrink-0 hover:scale-[1.02] flex items-center justify-center"
+              className="p-3.5 sm:p-4 rounded-none bg-primary text-primary-foreground font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 shrink-0 hover:scale-[1.02] flex items-center justify-center"
             >
-              <Send className="w-5 h-5 text-slate-950 fill-slate-950" />
+              <Send className="w-5 h-5 text-primary-foreground fill-primary-foreground" />
             </button>
           </form>
         </div>

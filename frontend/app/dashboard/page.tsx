@@ -24,9 +24,9 @@ export default function DashboardPage() {
 
 
       {/* Executive Summary Download CTA Bar */}
-      <div className="glass-card p-4 border border-primary/30 bg-gradient-to-r from-primary/10 via-card to-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md group">
+      <div className="glass-card p-4 border border-primary/30 bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md group">
         <div className="flex items-start sm:items-center gap-3.5">
-          <div className="p-2.5 rounded-xl bg-primary/20 text-primary border border-primary/30 shadow-sm shrink-0 mt-1 sm:mt-0">
+          <div className="p-2.5 rounded-none bg-primary/20 text-primary border border-primary/30 shadow-sm shrink-0 mt-1 sm:mt-0">
             <FileText className="w-5 h-5 animate-pulse-slow" />
           </div>
           <div>
@@ -34,9 +34,7 @@ export default function DashboardPage() {
               <span className="text-sm sm:text-base font-extrabold text-foreground group-hover:text-primary transition-colors tracking-tight">
                 Live Executive Summary Report Studio
               </span>
-              <span className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono font-bold uppercase shrink-0">
-                <ShieldCheck className="w-3.5 h-3.5" /> Ready for Leadership
-              </span>
+              
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 font-sans leading-relaxed">
               Generate a high-resolution 1-page PDF or PNG summary of headline KPIs and top-5 automation opportunities based on your active filters.
@@ -46,7 +44,7 @@ export default function DashboardPage() {
 
         <button
           onClick={() => setIsSummaryOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-emerald-500 text-primary-foreground font-semibold hover:opacity-95 transition-all text-xs shadow-lg shadow-primary/25 self-start sm:self-center shrink-0"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-none bg-primary text-primary-foreground font-semibold hover:opacity-95 transition-all text-xs shadow-lg shadow-primary/25 self-start sm:self-center shrink-0"
         >
           <Sparkles className="w-4 h-4" />
           Open Executive Summary

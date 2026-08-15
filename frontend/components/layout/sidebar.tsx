@@ -25,16 +25,16 @@ export function Sidebar() {
   const isAIActive = pathname === '/dashboard/ai';
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 border-r border-border/60 bg-card/80 backdrop-blur-md shrink-0 shadow-lg select-none">
+    <aside className="hidden lg:flex flex-col w-64 border-r border-border/60 bg-card/80 backdrop-blur-md shrink-0 shadow-lg select-none rounded-none">
       {/* Brand Header */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-border/60 bg-gradient-to-b from-card to-card/50">
-        <div className="w-10 h-10 rounded-xl bg-slate-900 border border-primary/20 flex items-center justify-center shadow-md shrink-0 overflow-hidden">
-          <img src="/workforce.svg" alt="Workforce Pulse Logo" className="w-full h-full object-cover" />
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-border/60 bg-card">
+        <div className="w-10 h-10 rounded-none bg-primary border border-primary/20 flex items-center justify-center shadow-md shrink-0 overflow-hidden">
+          <img src="/workforce.svg" alt="Workforce Pulse Logo" className="w-6 h-6 object-contain invert brightness-0" />
         </div>
         <div>
           <div className="flex items-center gap-1.5">
             <p className="font-extrabold text-sm text-foreground tracking-tight">Workforce Pulse</p>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping-once" title="Live System Active" />
+            <span className="w-2 h-2 rounded-none bg-primary animate-ping-once" title="Live System Active" />
           </div>
           <p className="text-[10px] uppercase tracking-widest font-mono font-semibold text-primary/90 mt-0.5 flex items-center gap-1">
             <Sparkles className="w-2.5 h-2.5" /> AI Intelligence
@@ -54,15 +54,15 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href as any}
-              className={`flex items-center justify-between px-3.5 py-3 rounded-xl font-medium text-sm transition-all group duration-200 relative overflow-hidden ${
+              className={`flex items-center justify-between px-3.5 py-3 rounded-none font-medium text-sm transition-all group duration-200 relative overflow-hidden ${
                 active
-                  ? 'bg-gradient-to-r from-primary/25 via-primary/10 to-transparent text-foreground font-bold shadow-md border-l-4 border-primary pl-4'
+                  ? 'bg-primary/10 text-foreground font-bold shadow-md border-l-4 border-primary pl-4'
                   : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground border-l-4 border-transparent'
               }`}
             >
               {active && <div className="absolute inset-0 bg-primary/5 pointer-events-none" />}
               <div className="flex items-center gap-3 relative z-10">
-                <div className={`p-1.5 rounded-lg transition-colors ${
+                <div className={`p-1.5 rounded-none transition-colors ${
                   active
                     ? 'bg-primary/20 text-primary shadow-sm'
                     : 'bg-muted/30 text-muted-foreground group-hover:text-primary group-hover:bg-primary/10'
@@ -87,31 +87,31 @@ export function Sidebar() {
 
         <Link
           href={'/dashboard/ai' as any}
-          className={`flex items-center justify-between px-3.5 py-3.5 rounded-xl font-medium text-sm transition-all group duration-200 relative overflow-hidden ${
+          className={`flex items-center justify-between px-3.5 py-3.5 rounded-none font-medium text-sm transition-all group duration-200 relative overflow-hidden ${
             isAIActive
-              ? 'bg-gradient-to-r from-emerald-500/25 via-emerald-500/10 to-transparent text-foreground font-bold shadow-md border-l-4 border-emerald-500 pl-4'
+              ? 'bg-primary/10 text-foreground font-bold shadow-md border-l-4 border-primary pl-4'
               : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground border-l-4 border-transparent'
           }`}
         >
-          {isAIActive && <div className="absolute inset-0 bg-emerald-500/5 pointer-events-none" />}
+          {isAIActive && <div className="absolute inset-0 bg-primary/5 pointer-events-none" />}
           <div className="flex items-center gap-3 relative z-10">
-            <div className={`p-1.5 rounded-lg transition-colors ${
+            <div className={`p-1.5 rounded-none transition-colors ${
               isAIActive
-                ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
-                : 'bg-muted/30 text-muted-foreground group-hover:text-emerald-400 group-hover:bg-emerald-500/10'
+                ? 'bg-primary/20 text-primary shadow-sm'
+                : 'bg-muted/30 text-muted-foreground group-hover:text-primary group-hover:bg-primary/10'
             }`}>
               <Cpu className="w-4 h-4 shrink-0" />
             </div>
             <div>
-              <span className={`block leading-tight ${isAIActive ? 'text-emerald-400 font-bold' : ''}`}>
+              <span className={`block leading-tight ${isAIActive ? 'text-primary font-bold' : ''}`}>
                 AI Copilot
               </span>
               <span className="text-[10px] font-mono text-muted-foreground/70 leading-tight">Grounded · Multi-turn</span>
             </div>
           </div>
           {isAIActive
-            ? <ChevronRight className="w-4 h-4 text-emerald-400 shrink-0 relative z-10 animate-fade-in" />
-            : <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-bold border border-emerald-500/30 shrink-0">AI</span>
+            ? <ChevronRight className="w-4 h-4 text-primary shrink-0 relative z-10 animate-fade-in" />
+            : <span className="text-[9px] px-1.5 py-0.5 rounded-none bg-primary/20 text-primary font-mono font-bold border border-primary/30 shrink-0">AI</span>
           }
         </Link>
       </div>
@@ -124,7 +124,7 @@ export function Sidebar() {
             router.push('/login');
             router.refresh();
           }}
-          className="flex items-center gap-3 w-full px-3.5 py-2.5 rounded-xl text-xs font-medium text-muted-foreground hover:bg-red-500/10 hover:text-red-400 transition-colors border border-transparent hover:border-red-500/20"
+          className="flex items-center gap-3 w-full px-3.5 py-2.5 rounded-none text-xs font-medium text-muted-foreground hover:bg-red-500/10 hover:text-red-400 transition-colors border border-transparent hover:border-red-500/20"
         >
           <LogOut className="w-4 h-4 shrink-0" />
           <span>Sign out</span>
