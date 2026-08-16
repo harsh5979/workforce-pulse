@@ -123,7 +123,7 @@ export async function streamAIChat(
 
   // ── 5. SCOPE GATE (0 LLM tokens) ───────────────────────────────────────────
   const priorTurns = allHistory.filter(m => m.role === 'user').length;
-  if (!SCOPE_RE.test(userMessage) && !FOLLOWUP_RE.test(userMessage.trim()) && priorTurns <= 1) {
+  if (!SCOPE_RE.test(userMessage) && !FOLLOWUP_RE.test(userMessage.trim())) {
     logger.info(`Scope-gate rejected off-topic query: "${userMessage.slice(0, 60)}"`);
     return streamDirect(res, sid, SCOPE_DENIAL, 'scope-gate');
   }
