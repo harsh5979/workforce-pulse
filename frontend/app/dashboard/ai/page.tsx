@@ -346,7 +346,7 @@ export default function AIPage() {
 
   const serverMessages = useMemo(() => {
     if (!historyData) return [];
-    return historyData.pages.slice().reverse().flatMap(page => page.messages).map((m: any) => ({
+    return historyData.pages.slice().reverse().flatMap(page => page.messages).map((m: any): Message => ({
       id: m.id.toString(),
       sender: m.role === 'user' ? 'user' : 'ai',
       text: m.content
