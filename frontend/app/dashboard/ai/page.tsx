@@ -1,11 +1,15 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Sparkles, ChevronRight, ShieldCheck, CornerDownRight, RotateCcw, ChevronDown, AlertTriangle, RefreshCw, Clock } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Send, Sparkles, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, RefreshCw, Clock } from 'lucide-react';
 import { SUGGESTED_AI_QUERIES, API_BASE_URL } from '@/lib/constants';
 import DOMPurify from 'dompurify';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Link from 'next/link';
+import { CitationChip } from '@/components/ui/citation-chip';
+import { useAIChatHistory, useAIBriefing } from '@/hooks/use-ai-chat';
 
 interface Message {
   id: string;
@@ -74,7 +78,17 @@ const MD_COMPONENTS: React.ComponentProps<typeof ReactMarkdown>['components'] = 
   pre: ({ node, ...props }) => <pre className="block bg-muted text-foreground p-3 rounded border border-border overflow-x-auto my-3" {...props} />,
   code: ({ node, className, ...props }) =>
     <code className={`${className || ''} font-mono text-[11px] bg-muted/50 text-accent px-1.5 py-0.5 rounded border border-border`} {...props} />,
-  a: ({ node, ...props }) => <a className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer" {...props} />,
+  a: ({ node, href, children, ...props }: any) => {
+    if (href?.startsWith('citation:')) {
+      const text = decodeURIComponent(href.replace('citation:', ''));
+      return <CitationChip reference={children as string} text={text} />;
+    }
+    return (
+      <a href={href} className="text-primary hover:underline underline-offset-2" target="_blank" rel="noopener noreferrer" {...props}>
+        {children}
+      </a>
+    );
+  }
 };
 
 // ─── Table skeleton (pure React, no markdown needed) ──────────────────────
@@ -144,8 +158,41 @@ function findTableBlockStart(lines: string[]): number {
   return start;
 }
 
+function extractBlock(text: string, tag: 'CHART' | 'ACTION') {
+  const prefix = `[${tag}:`;
+  const startIndex = text.indexOf(prefix);
+  if (startIndex === -1) return { config: null, remaining: text };
+
+  let bracketCount = 0;
+  let endIndex = -1;
+  for (let i = startIndex; i < text.length; i++) {
+    if (text[i] === '[') bracketCount++;
+    else if (text[i] === ']') {
+      bracketCount--;
+      if (bracketCount === 0) {
+        endIndex = i;
+        break;
+      }
+    }
+  }
+
+  if (endIndex !== -1) {
+    const jsonStr = text.slice(startIndex + prefix.length, endIndex).trim();
+    const remaining = text.slice(0, startIndex) + text.slice(endIndex + 1);
+    try {
+      return { config: JSON.parse(jsonStr), remaining: remaining.trim() };
+    } catch (e) {
+      console.error(`Failed to parse ${tag} config:`, e);
+      // If parsing fails, just leave it so it doesn't break everything else
+      return { config: null, remaining: text };
+    }
+  }
+  
+  return { config: null, remaining: text };
+}
+
 // ─── Main renderer ─────────────────────────────────────────────────────────
-function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId: string; isStreaming?: boolean }) {
+function AIMessageBody({ content, msgId, isStreaming, onSuggestionClick }: { content: string; msgId: string; isStreaming?: boolean; onSuggestionClick?: (q: string) => void }) {
   // ── 1. Initial loading dots (no content yet) ──────────────────────────
   if (isStreaming && !content) {
     return (
@@ -159,10 +206,37 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
 
   if (!content) return null;
 
-  // ── 2. XSS sanitization ───────────────────────────────────────────────
+  // ── 2. XSS sanitization and Chip Extraction ─────────────────────────
   const safe = typeof window !== 'undefined' ? DOMPurify.sanitize(content) : content;
   const cleaned = safe.replace(/<br\s*\/?>/gi, '\n');
-  const normalised = normaliseMarkdown(cleaned);
+  
+  // Extract chips
+  const chips: string[] = [];
+  let noChipsContent = cleaned;
+  const chipRegex = /\[CHIP:\s*(.+?)\]/g;
+  let match;
+  while ((match = chipRegex.exec(cleaned)) !== null) {
+    chips.push(match[1]);
+  }
+  noChipsContent = noChipsContent.replace(chipRegex, '').trim();
+
+  // Extract chart
+  const chartData = extractBlock(noChipsContent, 'CHART');
+  const chartConfig = chartData.config;
+  noChipsContent = chartData.remaining;
+
+  // Extract action
+  const actionData = extractBlock(noChipsContent, 'ACTION');
+  const actionConfig = actionData.config;
+  noChipsContent = actionData.remaining;
+
+  // Pre-process citations [Ref: Text] -> [Ref](citation:Text)
+  // Negative lookahead prevents matching broken CHART/ACTION/CHIP tags
+  noChipsContent = noChipsContent.replace(/\[(?!(?:CHART|ACTION|CHIP)\b)([^:]+?):\s*([^\]]+?)\]/g, (match, ref, text) => {
+    return `[${ref}](citation:${encodeURIComponent(text)})`;
+  });
+
+  const normalised = normaliseMarkdown(noChipsContent);
 
   // ── 3. During streaming: split text / table and show skeleton ─────────
   if (isStreaming) {
@@ -209,21 +283,57 @@ function AIMessageBody({ content, msgId, isStreaming }: { content: string; msgId
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
         {normalised}
       </ReactMarkdown>
+      {chartConfig && chartConfig.data && (
+        <div className="w-full h-64 mt-4 bg-card border border-border/50 rounded-md p-4">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartConfig.data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis dataKey={chartConfig.xKey} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '4px', fontSize: '12px' }}
+                itemStyle={{ color: 'hsl(var(--primary))' }}
+              />
+              <Bar dataKey={chartConfig.yKey} fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {actionConfig && actionConfig.label && actionConfig.href && !isStreaming && (
+        <div className="mt-4 pt-2">
+          <Link
+            href={actionConfig.href}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground text-xs font-bold transition-all active:scale-95 shadow-md border border-accent/80 hover:bg-accent/90"
+          >
+            <Sparkles className="w-4 h-4" />
+            {actionConfig.label}
+          </Link>
+        </div>
+      )}
+      {chips.length > 0 && !isStreaming && (
+        <div className="flex flex-wrap gap-2 mt-4 pt-2 border-t border-border/30">
+          {chips.map((chip, idx) => (
+            <button
+              key={idx}
+              onClick={() => onSuggestionClick?.(chip)}
+              className="text-[11px] sm:text-xs font-semibold px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all active:scale-95"
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 export default function AIPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      sender: 'ai',
-      text: "**Workforce Operational Intelligence**\n\nI am grounded directly on your normalized activity logs and HRMS compensation schema — no wrappers, no hallucination.\n\n- Ask about time expenditure, repetitive cost, or automation ROI by department, task, or employee.\n- Follow up with multi-turn context like *\"break that down by department\"*.",
-    },
-  ]);
+  const { data: historyData, fetchNextPage, hasNextPage, isFetchingNextPage, status: historyStatus } = useAIChatHistory();
+  const { data: briefingData, status: briefingStatus } = useAIBriefing();
+  
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | undefined>();
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState<boolean>(true);
   const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
   const [pendingRetryQuery, setPendingRetryQuery] = useState<string | null>(null);
@@ -231,10 +341,49 @@ export default function AIPage() {
   const retryCountRef = useRef(0);
   const endRef = useRef<HTMLDivElement>(null);
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [prevScrollHeight, setPrevScrollHeight] = useState(0);
+
+  const serverMessages = useMemo(() => {
+    if (!historyData) return [];
+    return historyData.pages.slice().reverse().flatMap(page => page.messages).map((m: any) => ({
+      id: m.id.toString(),
+      sender: m.role === 'user' ? 'user' : 'ai',
+      text: m.content
+    }));
+  }, [historyData]);
+
+  const hasHistory = serverMessages.length > 0;
+  
+  const defaultWelcomeMessage: Message = {
+    id: 'welcome',
+    sender: 'ai',
+    text: briefingData?.text || "**Workforce Operational Intelligence**\n\nI am grounded directly on your normalized activity logs and HRMS compensation schema — no wrappers, no hallucination.\n\n- Ask about time expenditure, repetitive cost, or automation ROI by department, task, or employee.\n- Follow up with multi-turn context like *\"break that down by department\"*.",
+  };
+
+  const displayMessages = [...(!hasHistory && localMessages.length === 0 ? [defaultWelcomeMessage] : []), ...serverMessages, ...localMessages];
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (e.currentTarget.scrollTop < 50 && hasNextPage && !isFetchingNextPage) {
+      setPrevScrollHeight(e.currentTarget.scrollHeight);
+      fetchNextPage();
+    }
+  };
+
+  useEffect(() => {
+    if (scrollContainerRef.current && prevScrollHeight > 0) {
+      const newScrollHeight = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTop += (newScrollHeight - prevScrollHeight);
+      setPrevScrollHeight(0);
+    }
+  }, [serverMessages.length, prevScrollHeight]);
+
   useEffect(() => { if (window.innerWidth < 640) setIsSuggestionsOpen(false); }, []);
 
-  const userMessagesCount = messages.filter(m => m.sender === 'user').length;
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  const userMessagesCount = displayMessages.filter(m => m.sender === 'user').length;
+  useEffect(() => { 
+    if (prevScrollHeight === 0) endRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+  }, [displayMessages]);
   useEffect(() => { if (userMessagesCount > 0) setIsSuggestionsOpen(false); }, [userMessagesCount]);
 
   useEffect(() => {
@@ -244,7 +393,7 @@ export default function AIPage() {
         retryCountRef.current += 1;
         const q = pendingRetryQuery;
         setPendingRetryQuery(null); setRateLimitCountdown(null);
-        if (rateLimitMsgId) { setMessages(p => p.filter(m => m.id !== rateLimitMsgId)); setRateLimitMsgId(null); }
+        if (rateLimitMsgId) { setLocalMessages(p => p.filter(m => m.id !== rateLimitMsgId)); setRateLimitMsgId(null); }
         sendMessage(q);
       } else { setRateLimitCountdown(null); }
       return;
@@ -259,7 +408,7 @@ export default function AIPage() {
     const q = pendingRetryQuery;
     retryCountRef.current += 1;
     setPendingRetryQuery(null); setRateLimitCountdown(null);
-    if (rateLimitMsgId) { setMessages(p => p.filter(m => m.id !== rateLimitMsgId)); setRateLimitMsgId(null); }
+    if (rateLimitMsgId) { setLocalMessages(p => p.filter(m => m.id !== rateLimitMsgId)); setRateLimitMsgId(null); }
     sendMessage(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingRetryQuery, rateLimitMsgId]);
@@ -269,12 +418,12 @@ export default function AIPage() {
     setRateLimitCountdown(null); setPendingRetryQuery(null); retryCountRef.current = 0;
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: query };
     const aiId = (Date.now() + 1).toString();
-    setMessages(p => [...p, userMsg, { id: aiId, sender: 'ai', text: '', isStreaming: true }]);
+    setLocalMessages(p => [...p, userMsg, { id: aiId, sender: 'ai', text: '', isStreaming: true }]);
     setInput(''); setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', body: JSON.stringify({ message: query, sessionId }),
+        credentials: 'include', body: JSON.stringify({ message: query }),
       });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Connection error.'); }
       const reader = res.body?.getReader();
@@ -290,161 +439,162 @@ export default function AIPage() {
           if (!str) continue;
           try {
             const p = JSON.parse(str);
-            if (p.sessionId) setSessionId(p.sessionId);
             if (p.rateLimited) {
               wasRateLimited = true;
-              setMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false, isRateLimited: true } : m));
+              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false, isRateLimited: true } : m));
               setRateLimitMsgId(aiId); setPendingRetryQuery(query); setRateLimitCountdown(30); setIsLoading(false);
-            } else if (p.error) { acc += p.error; setMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m)); }
-            else if (p.content) { acc += p.content; setMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m)); }
+            } else if (p.error) { acc += p.error; setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m)); }
+            else if (p.content) { acc += p.content; setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m)); }
           } catch { /* ignore */ }
         }
       }
-      if (!wasRateLimited) setMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false } : m));
-    } catch (err: any) {
-      setMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: err.message || 'Connection error.', isStreaming: false } : m));
-    } finally { setIsLoading(false); }
-  };
-
-  const clearChat = () => {
-    setMessages([{ id: 'welcome', sender: 'ai', text: "**Workforce Operational Intelligence**\n\nI am grounded directly on your normalized activity logs and HRMS compensation schema — no wrappers, no hallucination.\n\n- Ask about time expenditure, repetitive cost, or automation ROI by department, task, or employee.\n- Follow up with multi-turn context like *\"break that down by department\"*." }]);
-    setSessionId(undefined); setIsSuggestionsOpen(true); setRateLimitCountdown(null); setPendingRetryQuery(null); setRateLimitMsgId(null); retryCountRef.current = 0;
+      setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false } : m));
+    } catch (e) {
+      console.error(e);
+      setLocalMessages(ms => ms.filter(m => m.id !== aiId));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 animate-fade-in overflow-hidden relative sm:rounded-none border-0 sm:border border-border/50 shadow-sm bg-card">
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-3 sm:px-6 bg-background/40 relative" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div className="sticky top-0 z-10 flex justify-end pt-3 pb-1 pointer-events-none">
-          <button onClick={clearChat} className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-none bg-card/90 hover:bg-muted backdrop-blur-md text-muted-foreground hover:text-foreground border border-border/70 text-[11px] sm:text-xs font-bold transition-all shadow-md active:scale-95">
-            <RotateCcw className="w-3.5 h-3.5 text-primary" /><span>New Session</span>
-          </button>
-        </div>
-        <div className="flex flex-col min-h-[calc(100%-2.5rem)] pb-32 sm:pb-24 pt-2 space-y-4 sm:space-y-5">
-          {messages.map((m) => (
-            <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`w-full max-w-[94%] sm:max-w-[85%] lg:max-w-[78%] rounded-none px-3.5 py-3 sm:px-5 sm:py-4 ${m.sender === 'user' ? 'bg-primary border border-primary/40 text-primary-foreground ml-auto shadow-md' : 'bg-card border border-border/70 text-foreground shadow-md'}`}>
-                {m.sender === 'user' ? (
-                  <p className="text-xs sm:text-sm font-medium leading-relaxed">{m.text}</p>
-                ) : (
-                  <div className="space-y-2">
-                    {m.isRateLimited ? (
-                      <div className="space-y-3">
-                        <div className="flex items-start gap-3 p-3 rounded-none bg-amber-500/10 border border-amber-500/30">
-                          <AlertTriangle className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-accent">All free AI models are rate-limited (429)</p>
-                            <p className="text-[11px] text-accent/80 font-mono mt-0.5">
-                              {retryCountRef.current >= 2 ? 'Maximum auto-retries reached.' : rateLimitCountdown !== null && rateLimitMsgId === m.id ? `Auto-retrying in ${rateLimitCountdown}s…` : 'Ready to retry.'}
-                            </p>
-                          </div>
-                        </div>
-                        {rateLimitCountdown !== null && rateLimitMsgId === m.id && retryCountRef.current < 2 && (
-                          <div className="space-y-1.5">
-                            <div className="h-1.5 w-full rounded-none bg-muted overflow-hidden">
-                              <div className="h-full rounded-none bg-accent transition-all duration-1000 ease-linear" style={{ width: `${(rateLimitCountdown / 30) * 100}%` }} />
-                            </div>
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="flex items-center gap-1.5 text-[11px] text-accent/70 font-mono"><Clock className="w-3 h-3" />Auto-retry in {rateLimitCountdown}s</span>
-                              <button onClick={retryNow} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-none bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-accent text-[11px] font-bold transition-all active:scale-95"><RefreshCw className="w-3 h-3" />Retry Now</button>
-                            </div>
-                          </div>
-                        )}
-                        {rateLimitCountdown === null && retryCountRef.current < 2 && rateLimitMsgId === m.id && (
-                          <button onClick={retryNow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-accent text-xs font-bold transition-all active:scale-95"><RefreshCw className="w-3.5 h-3.5" />Retry</button>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        {m.isStreaming ? (
-                          m.text.length === 0 ? (
-                            /* Phase 1: No tokens yet — thinking skeleton */
-                            <div className="flex flex-col gap-3 py-1">
-                              <div className="flex items-center gap-2 text-muted-foreground text-xs font-mono">
-                                <span className="flex gap-1">
-                                  <span className="w-2 h-2 rounded-none bg-primary animate-bounce [animation-delay:0ms]" />
-                                  <span className="w-2 h-2 rounded-none bg-primary animate-bounce [animation-delay:150ms]" />
-                                  <span className="w-2 h-2 rounded-none bg-primary animate-bounce [animation-delay:300ms]" />
-                                </span>
-                                <span className="animate-pulse">Analyzing workforce data...</span>
-                              </div>
-                              <div className="space-y-2 opacity-25">
-                                <div className="h-2 bg-muted rounded-none w-3/4 animate-pulse" />
-                                <div className="h-2 bg-muted rounded-none w-full animate-pulse [animation-delay:150ms]" />
-                                <div className="h-2 bg-muted rounded-none w-5/6 animate-pulse [animation-delay:300ms]" />
-                              </div>
-                            </div>
-                          ) : (
-                            /* Phase 2: Tokens streaming — AIMessageBody handles text + table skeleton */
-                            <AIMessageBody content={m.text} msgId={m.id} isStreaming={true} />
-                          )
-                        ) : (
-                          /* Phase 3: Done — full rich formatted output */
-                          <div className="animate-fade-in">
-                            <AIMessageBody content={m.text} msgId={m.id} isStreaming={false} />
-                            {m.id !== 'welcome' && (
-                              <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-border/40 text-[11px] text-muted-foreground font-mono">
-                                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                                <span>Grounded on database records</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-          <div ref={endRef} />
-        </div>
-      </div>
-
-      {/* Bottom Panel */}
-      <div className="shrink-0 border-t border-border/70 bg-card/95 backdrop-blur-md shadow-2xl z-20 flex flex-col" style={{ maxHeight: '60vh' }}>
-        {rateLimitCountdown !== null && (
-          <div className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/8 border-b border-amber-500/20 animate-fade-in">
-            <div className="flex items-center gap-2 min-w-0">
-              <Clock className="w-3.5 h-3.5 text-accent shrink-0 animate-pulse" />
-              <p className="text-[11px] font-mono text-accent/80">Rate-limited · Auto-retrying in <span className="font-black text-accent">{rateLimitCountdown}s</span></p>
-            </div>
-            <button onClick={() => { setRateLimitCountdown(null); setPendingRetryQuery(null); }} className="text-[10px] font-bold text-accent/60 hover:text-accent font-mono transition-colors shrink-0">Cancel</button>
-          </div>
-        )}
-        <div className="border-b border-border/50 bg-card">
-          <button type="button" onClick={() => setIsSuggestionsOpen(!isSuggestionsOpen)} className="w-full px-3 sm:px-6 py-2 flex items-center justify-between text-xs font-bold text-muted-foreground hover:text-foreground transition-colors group">
-            <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] sm:text-[11px] text-primary">
-              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span>Suggested Prompts ({SUGGESTED_AI_QUERIES.length})</span>
-            </span>
-            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground group-hover:text-primary transition-colors">
-              <span>{isSuggestionsOpen ? 'Collapse' : 'Expand Suggestions'}</span>
-              <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 ${isSuggestionsOpen ? 'rotate-180 text-primary' : 'text-muted-foreground'}`} />
-            </div>
-          </button>
-          {isSuggestionsOpen && (
-            <div className="px-3 sm:px-6 pb-3 pt-1 animate-fade-in border-t border-border/40 overflow-y-auto overscroll-contain" style={{ maxHeight: '35vh', WebkitOverflowScrolling: 'touch' }}>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {SUGGESTED_AI_QUERIES.slice(0, 5).map((q, idx) => (
-                  <button key={idx} onClick={() => sendMessage(q)} className="text-left text-xs py-2 px-3.5 rounded-none bg-muted/40 hover:bg-muted/80 border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground font-sans font-medium transition-all flex items-center justify-between gap-2 group shadow-sm overflow-hidden">
-                    <span className="truncate sm:line-clamp-2 sm:whitespace-normal leading-snug">{q}</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-primary shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                  </button>
-                ))}
-              </div>
+    <div className="flex flex-col h-full bg-background overflow-hidden relative font-sans">
+        {/* Messages Area */}
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-3 sm:px-6 bg-background/40 relative print:overflow-visible print:bg-transparent" style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {isFetchingNextPage && (
+            <div className="flex justify-center py-4 text-xs text-muted-foreground animate-pulse">
+              Syncing older messages...
             </div>
           )}
+          <div className="flex flex-col min-h-[calc(100%-2.5rem)] pb-32 sm:pb-24 pt-2 space-y-4 sm:space-y-5">
+            {displayMessages.map((m) => (
+              <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`w-full max-w-[94%] sm:max-w-[85%] lg:max-w-[78%] rounded-none px-3.5 py-3 sm:px-5 sm:py-4 ${m.sender === 'user' ? 'bg-primary border border-primary/40 text-primary-foreground ml-auto shadow-md' : 'bg-card border border-border/70 text-foreground shadow-md'}`}>
+                  {m.sender === 'user' ? (
+                    <p className="text-xs sm:text-sm font-medium leading-relaxed">{m.text}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {m.isRateLimited ? (
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3 p-3 rounded-none bg-amber-500/10 border border-amber-500/30">
+                            <AlertTriangle className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-accent">All free AI models are rate-limited (429)</p>
+                              <p className="text-[11px] text-accent/80 font-mono mt-0.5">
+                                {retryCountRef.current >= 2 ? 'Maximum auto-retries reached.' : rateLimitCountdown !== null && rateLimitMsgId === m.id ? `Auto-retrying in ${rateLimitCountdown}s…` : 'Ready to retry.'}
+                              </p>
+                            </div>
+                          </div>
+                          {rateLimitCountdown !== null && rateLimitMsgId === m.id && retryCountRef.current < 2 && (
+                            <div className="space-y-1.5">
+                              <div className="h-1.5 w-full rounded-none bg-muted overflow-hidden">
+                                <div className="h-full rounded-none bg-accent transition-all duration-1000 ease-linear" style={{ width: `${(rateLimitCountdown / 30) * 100}%` }} />
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="flex items-center gap-1.5 text-[11px] text-accent/70 font-mono"><Clock className="w-3 h-3" />Auto-retry in {rateLimitCountdown}s</span>
+                                <button onClick={retryNow} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-none bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-accent text-[11px] font-bold transition-all active:scale-95"><RefreshCw className="w-3 h-3" />Retry Now</button>
+                              </div>
+                            </div>
+                          )}
+                          {rateLimitCountdown === null && retryCountRef.current < 2 && rateLimitMsgId === m.id && (
+                            <button onClick={retryNow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-accent text-xs font-bold transition-all active:scale-95"><RefreshCw className="w-3.5 h-3.5" />Retry</button>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          {m.isStreaming ? (
+                            m.text.length === 0 ? (
+                              /* Phase 1: No tokens yet — thinking skeleton */
+                              <div className="flex flex-col gap-3 py-1">
+                                <div className="flex items-center gap-2 text-muted-foreground text-xs font-mono">
+                                  <span className="flex gap-1">
+                                    <span className="w-2 h-2 rounded-none bg-primary animate-bounce [animation-delay:0ms]" />
+                                    <span className="w-2 h-2 rounded-none bg-primary animate-bounce [animation-delay:150ms]" />
+                                    <span className="w-2 h-2 rounded-none bg-primary animate-bounce [animation-delay:300ms]" />
+                                  </span>
+                                  <span className="animate-pulse">Analyzing workforce data...</span>
+                                </div>
+                                <div className="space-y-2 opacity-25">
+                                  <div className="h-2 bg-muted rounded-none w-3/4 animate-pulse" />
+                                  <div className="h-2 bg-muted rounded-none w-full animate-pulse [animation-delay:150ms]" />
+                                  <div className="h-2 bg-muted rounded-none w-5/6 animate-pulse [animation-delay:300ms]" />
+                                </div>
+                              </div>
+                            ) : (
+                              /* Phase 2: Tokens streaming — AIMessageBody handles text + table skeleton */
+                              <AIMessageBody content={m.text} msgId={m.id} isStreaming={true} onSuggestionClick={sendMessage} />
+                            )
+                          ) : (
+                            /* Phase 3: Done — full rich formatted output */
+                            <div className="animate-fade-in">
+                              <AIMessageBody content={m.text} msgId={m.id} isStreaming={false} onSuggestionClick={sendMessage} />
+                              {m.id !== 'welcome' && (
+                                <div className="flex items-center gap-1.5 pt-2 mt-1 border-t border-border/40 text-[11px] text-muted-foreground font-mono">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                                  <span>Grounded on database records</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={endRef} />
+          </div>
         </div>
-        <div className="px-3 sm:px-6 py-3 sm:py-4">
-          <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex items-center gap-2.5">
-            <input type="text" value={input} onChange={(e) => setInput(e.target.value)} disabled={isLoading} placeholder="Ask about repetitive tasks, automation ROI..." className="flex-1 bg-background border border-border/80 rounded-none px-4 py-3.5 sm:px-5 sm:py-4 text-sm sm:text-base text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all font-sans shadow-inner min-w-0" />
-            <button type="submit" disabled={!input.trim() || isLoading} className="p-3.5 sm:p-4 rounded-none bg-primary text-primary-foreground font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 shrink-0 hover:scale-[1.02] flex items-center justify-center">
-              <Send className="w-5 h-5 text-primary-foreground fill-primary-foreground" />
+
+        {/* Bottom Panel */}
+        <div className="shrink-0 border-t border-border/70 bg-card/95 backdrop-blur-md shadow-2xl z-20 flex flex-col print:hidden" style={{ maxHeight: '60vh' }}>
+          {rateLimitCountdown !== null && (
+            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/8 border-b border-amber-500/20 animate-fade-in">
+              <div className="flex items-center gap-2 min-w-0">
+                <Clock className="w-3.5 h-3.5 text-accent shrink-0 animate-pulse" />
+                <p className="text-[11px] font-mono text-accent/80">Rate-limited · Auto-retrying in <span className="font-black text-accent">{rateLimitCountdown}s</span></p>
+              </div>
+              <button onClick={() => { setRateLimitCountdown(null); setPendingRetryQuery(null); }} className="text-[10px] font-bold text-accent/60 hover:text-accent font-mono transition-colors shrink-0">Cancel</button>
+            </div>
+          )}
+          <div className="border-b border-border/50 bg-card">
+            <button type="button" onClick={() => setIsSuggestionsOpen(!isSuggestionsOpen)} className="w-full px-3 sm:px-6 py-2 flex items-center justify-between text-xs font-bold text-muted-foreground hover:text-foreground transition-colors group">
+              <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] sm:text-[11px] text-primary">
+                <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span>Suggested Prompts ({SUGGESTED_AI_QUERIES.length})</span>
+              </span>
+              <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground group-hover:text-primary transition-colors">
+                <span>{isSuggestionsOpen ? 'Collapse' : 'Expand Suggestions'}</span>
+                <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 ${isSuggestionsOpen ? 'rotate-180 text-primary' : 'text-muted-foreground'}`} />
+              </div>
             </button>
-          </form>
+            {isSuggestionsOpen && (
+              <div className="px-3 sm:px-6 pb-3 pt-1 animate-fade-in border-t border-border/40 overflow-y-auto overscroll-contain" style={{ maxHeight: '35vh', WebkitOverflowScrolling: 'touch' }}>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {SUGGESTED_AI_QUERIES.slice(0, 5).map((q, idx) => (
+                    <button key={idx} onClick={() => sendMessage(q)} className="text-left text-xs py-2 px-3.5 rounded-none bg-muted/40 hover:bg-muted/80 border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground font-sans font-medium transition-all flex items-center justify-between gap-2 group shadow-sm overflow-hidden">
+                      <span className="truncate sm:line-clamp-2 sm:whitespace-normal leading-snug">{q}</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-primary shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="px-3 sm:px-6 py-3 sm:py-4">
+            <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex items-center gap-2.5">
+              <input type="text" value={input} onChange={(e) => setInput(e.target.value)} disabled={isLoading || historyStatus === 'pending'} placeholder="Ask about repetitive tasks, automation ROI..." className="flex-1 bg-background border border-border/80 rounded-none px-4 py-3.5 sm:px-5 sm:py-4 text-sm sm:text-base text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all font-sans shadow-inner min-w-0" />
+              <button type="submit" disabled={!input.trim() || isLoading || historyStatus === 'pending'} className="p-3.5 sm:p-4 rounded-none bg-primary text-primary-foreground font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 shrink-0 hover:scale-[1.02] flex items-center justify-center">
+                <Send className="w-5 h-5 text-primary-foreground fill-primary-foreground" />
+              </button>
+            </form>
+          </div>
         </div>
-      </div>
     </div>
   );
 }

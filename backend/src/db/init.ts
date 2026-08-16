@@ -95,6 +95,21 @@ export async function initDatabaseAndTables(): Promise<void> {
         duplicate_employees INTEGER DEFAULT 0,
         notes TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        id VARCHAR(50) PRIMARY KEY,
+        title VARCHAR(200) NOT NULL DEFAULT 'New Conversation',
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_active_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id SERIAL PRIMARY KEY,
+        session_id VARCHAR(50) NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+        role VARCHAR(20) NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     logger.info('✅ Database schema tables verified/created successfully!');
   } catch (err: any) {

@@ -70,9 +70,15 @@ export const api = {
   getAnomalies: (): Promise<any[]> =>
     apiClient.get('/api/anomalies'),
 
-  // AI Context
+  // AI Context & Chat
   getAIContext: (): Promise<any> =>
     apiClient.get('/api/ai/context'),
+
+  getAIBriefing: (): Promise<any> =>
+    apiClient.get('/api/ai/briefing'),
+
+  getAIChatHistory: (cursor?: string): Promise<any> =>
+    apiClient.get('/api/ai/session/current', { params: { cursor, limit: 7 } }),
 
   // Health
   health: (): Promise<any> =>

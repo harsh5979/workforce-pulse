@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   serial,
@@ -23,7 +24,7 @@ export const activityLogs = pgTable('activity_logs', {
   durationMin:     numeric('duration_min', { precision: 8, scale: 2 }).notNull(),
   isRepetitive:    boolean('is_repetitive').notNull(),
   rawIsRepetitive: varchar('raw_is_repetitive', { length: 30 }), // original value for audit
-  ingestionFlags:  text('ingestion_flags').array().default([]),   // e.g. ['fixed_negative_duration']
+  ingestionFlags:  text('ingestion_flags').array().default(sql`'{}'::text[]`),   // e.g. ['fixed_negative_duration']
   createdAt:       timestamp('created_at').defaultNow(),
 });
 
@@ -66,3 +67,24 @@ export type Employee = typeof employees.$inferSelect;
 export type NewEmployee = typeof employees.$inferInsert;
 export type IngestionRun = typeof ingestionRuns.$inferSelect;
 export type NewIngestionRun = typeof ingestionRuns.$inferInsert;
+
+// ─── AI Chat History ──────────────────────────────────────────────
+export const chatSessions = pgTable('chat_sessions', {
+  id:           varchar('id', { length: 50 }).primaryKey(), // UUID generated from client
+  title:        varchar('title', { length: 200 }).notNull().default('New Conversation'),
+  createdAt:    timestamp('created_at').defaultNow().notNull(),
+  lastActiveAt: timestamp('last_active_at').defaultNow().notNull(),
+});
+
+export const chatMessages = pgTable('chat_messages', {
+  id:        serial('id').primaryKey(),
+  sessionId: varchar('session_id', { length: 50 }).references(() => chatSessions.id, { onDelete: 'cascade' }).notNull(),
+  role:      varchar('role', { length: 20 }).notNull(), // 'user' | 'assistant' | 'system'
+  content:   text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type ChatSession = typeof chatSessions.$inferSelect;
+export type NewChatSession = typeof chatSessions.$inferInsert;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type NewChatMessage = typeof chatMessages.$inferInsert;

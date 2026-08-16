@@ -1,4 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
+import { db } from '../../config/db';
+import { chatSessions, chatMessages } from '../../db/schema';
+import { eq, asc, inArray } from 'drizzle-orm';
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -13,58 +16,88 @@ export interface ConversationSession {
 }
 
 const MAX_HISTORY = 20;
-const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
-// In-memory store (sufficient for single-user challenge)
-const sessions = new Map<string, ConversationSession>();
-
-// Cleanup stale sessions every 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, session] of sessions) {
-    if (now - session.lastActiveAt.getTime() > SESSION_TTL_MS) {
-      sessions.delete(id);
-    }
-  }
-}, 10 * 60 * 1000);
-
-export function createSession(): string {
-  const id = uuidv4();
-  sessions.set(id, {
-    id,
-    messages: [],
-    createdAt: new Date(),
-    lastActiveAt: new Date(),
+export async function getOrCreateSession(userId: string): Promise<string> {
+  // Use the userId as the session ID for a 1:1 mapping
+  const sessionId = `session_${userId}`;
+  
+  const existing = await db.query.chatSessions.findFirst({
+    where: eq(chatSessions.id, sessionId),
   });
-  return id;
+  
+  if (!existing) {
+    await db.insert(chatSessions).values({ id: sessionId });
+  }
+  
+  return sessionId;
 }
 
-export function getSession(id: string): ConversationSession | null {
-  return sessions.get(id) ?? null;
+export async function getSession(id: string): Promise<ConversationSession | null> {
+  const session = await db.query.chatSessions.findFirst({
+    where: eq(chatSessions.id, id),
+  });
+  
+  if (!session) return null;
+  
+  const history = await getHistory(id);
+  
+  return {
+    id: session.id,
+    messages: history,
+    createdAt: session.createdAt,
+    lastActiveAt: session.lastActiveAt,
+  };
 }
 
-export function addMessage(sessionId: string, message: Message): void {
-  const session = sessions.get(sessionId);
+export async function addMessage(sessionId: string, message: Message): Promise<void> {
+  // First ensure session exists
+  const session = await db.query.chatSessions.findFirst({
+    where: eq(chatSessions.id, sessionId),
+  });
+  
   if (!session) return;
 
-  session.messages.push(message);
-  session.lastActiveAt = new Date();
+  // Insert the new message
+  await db.insert(chatMessages).values({
+    sessionId,
+    role: message.role,
+    content: message.content,
+  });
 
-  // Prune oldest non-system messages if over limit
-  const nonSystem = session.messages.filter(m => m.role !== 'system');
+  // Update last active
+  await db.update(chatSessions)
+    .set({ lastActiveAt: new Date() })
+    .where(eq(chatSessions.id, sessionId));
+    
+  // Enforce Max History for non-system messages
+  const allMessages = await db.query.chatMessages.findMany({
+    where: eq(chatMessages.sessionId, sessionId),
+    orderBy: [asc(chatMessages.createdAt), asc(chatMessages.id)]
+  });
+  
+  const nonSystem = allMessages.filter(m => m.role !== 'system');
   if (nonSystem.length > MAX_HISTORY) {
-    const excess = nonSystem.length - MAX_HISTORY;
-    session.messages = [
-      ...session.messages.filter(m => m.role === 'system'),
-      ...nonSystem.slice(excess),
-    ];
+    const toDeleteCount = nonSystem.length - MAX_HISTORY;
+    const toDeleteIds = nonSystem.slice(0, toDeleteCount).map(m => m.id);
+    
+    if (toDeleteIds.length > 0) {
+      await db.delete(chatMessages).where(inArray(chatMessages.id, toDeleteIds));
+    }
   }
 }
 
-export function getHistory(sessionId: string): Message[] {
-  return sessions.get(sessionId)?.messages ?? [];
+export async function getHistory(sessionId: string): Promise<Message[]> {
+  const messages = await db.query.chatMessages.findMany({
+    where: eq(chatMessages.sessionId, sessionId),
+    orderBy: [asc(chatMessages.createdAt), asc(chatMessages.id)]
+  });
+  
+  return messages.map(m => ({
+    role: m.role as 'user' | 'assistant' | 'system',
+    content: m.content,
+  }));
 }
 
-export function clearSession(sessionId: string): void {
-  sessions.delete(sessionId);
+export async function clearSessionMessages(sessionId: string): Promise<void> {
+  await db.delete(chatMessages).where(eq(chatMessages.sessionId, sessionId));
 }

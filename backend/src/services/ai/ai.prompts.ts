@@ -33,5 +33,5 @@ RESPONSE FORMAT (no section labels):
 // because the tool has already executed and the result is in the message context.
 export function buildStep3Prompt(): string {
   return `WorkforcePulse AI — format the [TOOL_DATA] into clean Markdown.
-Output: (1) One executive sentence using the exact count/numbers from the data — never echo the user's requested number. (2) ONE Markdown table. No JSON. No SQL. No invented numbers.`;
+Output: (1) One executive sentence using the exact count/numbers from the data — never echo the user's requested number. (2) ONE Markdown table. (3) If the data has more than 1 row and is suitable for a bar chart, append a chart config EXACTLY as [CHART: {"data": [{"name": "row1", "value": 10}], "xKey": "name", "yKey": "value"}]. (4) If a specific high-ROI automation opportunity is found, append an action block EXACTLY as [ACTION: {"label": "View Task Categories", "href": "/dashboard/categories"}]. Only use valid routes for actions: /dashboard/categories, /dashboard/employees, /dashboard/trends, /dashboard/anomalies. (5) Exactly 3 short follow-up questions formatted exactly as [CHIP: question text] at the very end. No JSON (except CHART/ACTION). No SQL. No invented numbers.`;
 }

@@ -8,7 +8,7 @@ import { selectToolSchemas }        from './ai.schema-selector';
 import { chatbotTools }             from './tools';          // ← all 5 schemas (mismatch fallback)
 import { executeTool }              from './tool-handlers';
 import { addMessage, getHistory,
-         createSession, getSession } from './conversation.store';
+         getOrCreateSession } from './conversation.store';
 import { buildCompactAIPrompt }     from './context-builder';
 import { logger }                   from '../../utils/logger';
 import { Response }                 from 'express';
@@ -42,7 +42,7 @@ async function streamDirect(
     res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
     await new Promise(r => setTimeout(r, delayMs));
   }
-  addMessage(sid, { role: 'assistant', content: text });
+  await addMessage(sid, { role: 'assistant', content: text });
   res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model })}\n\n`);
   res.end();
   return text;
@@ -80,11 +80,25 @@ export async function streamAIChat(
 ): Promise<string> {
 
   // ── 1. SESSION ──────────────────────────────────────────────────────────────
-  const sid = sessionId && getSession(sessionId) ? sessionId : createSession();
+  const sid = await getOrCreateSession(user?.id || 'default');
 
   // ── 2. HISTORY — last 3 turns (6 msgs). Wider context prevents redundant re-queries on follow-ups.
-  const history = getHistory(sid).filter(m => m.role !== 'system').slice(-6);
-  addMessage(sid, { role: 'user', content: userMessage });
+  const allHistory = await getHistory(sid);
+  // Token saving: truncate markdown tables in the context passed to the LLM
+  // (We store the full response in the DB for UI rendering, but the LLM doesn't need all rows).
+  const history = allHistory.filter(m => m.role !== 'system').slice(-6).map(m => {
+    if (m.role === 'assistant' && m.content.includes('|') && m.content.length > 300) {
+      const firstSentence = m.content.split(/(?<=\.\s)|\n/)[0]?.trim() ?? '';
+      return { 
+        ...m, 
+        content: firstSentence.length > 20 
+          ? firstSentence + ' …[full table delivered to user]' 
+          : m.content.slice(0, 200) + '…' 
+      };
+    }
+    return m;
+  });
+  await addMessage(sid, { role: 'user', content: userMessage });
 
   // ── 3. WRITE-INTENT GATE (0 LLM tokens) ────────────────────────────────────
   const lc = userMessage.toLowerCase();
@@ -101,14 +115,14 @@ export async function streamAIChat(
       res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
       await new Promise(r => setTimeout(r, 8));
     }
-    addMessage(sid, { role: 'assistant', content: GREETING_COMPACT }); // compact in history
+    await addMessage(sid, { role: 'assistant', content: GREETING_COMPACT }); // compact in history
     res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: 'greeting' })}\n\n`);
     res.end();
     return GREETING_FULL;
   }
 
   // ── 5. SCOPE GATE (0 LLM tokens) ───────────────────────────────────────────
-  const priorTurns = getHistory(sid).filter(m => m.role === 'user').length;
+  const priorTurns = allHistory.filter(m => m.role === 'user').length;
   if (!SCOPE_RE.test(userMessage) && !FOLLOWUP_RE.test(userMessage.trim()) && priorTurns <= 1) {
     logger.info(`Scope-gate rejected off-topic query: "${userMessage.slice(0, 60)}"`);
     return streamDirect(res, sid, SCOPE_DENIAL, 'scope-gate');
@@ -190,8 +204,7 @@ ${compactCtx}` },
       }
     }
     if (fullResponse) {
-      const firstSentence = fullResponse.split(/(?<=\.\s)|\n/)[0]?.trim() ?? '';
-      addMessage(sid, { role: 'assistant', content: firstSentence.length > 20 ? firstSentence + ' …[full table delivered]' : fullResponse.slice(0, 200) });
+      await addMessage(sid, { role: 'assistant', content: fullResponse });
     }
     res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: fpModelUsed })}\n\n`);
     res.end();
@@ -319,15 +332,10 @@ ${compactCtx}` },
         }
       }
 
-      // Bug 4 fix: store only the executive first sentence in history.
-      // The full table was already streamed to the user — the model doesn't
-      // need the markdown table rows to answer follow-up questions.
+      // The full table is streamed to the user and saved to the DB.
+      // (We dynamically truncate it when loading history for the next prompt to save tokens).
       if (fullResponse) {
-        const firstSentence = fullResponse.split(/(?<=\.\s)|\n/)[0]?.trim() ?? '';
-        const histContent = firstSentence.length > 20
-          ? firstSentence + ' …[full table delivered to user]'
-          : fullResponse.slice(0, 200) + '…';
-        addMessage(sid, { role: 'assistant', content: histContent });
+        await addMessage(sid, { role: 'assistant', content: fullResponse });
       }
 
       res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: modelUsed })}\n\n`);
@@ -349,7 +357,7 @@ ${compactCtx}` },
     res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
     await new Promise(r => setTimeout(r, 5));
   }
-  addMessage(sid, { role: 'assistant', content });
+  await addMessage(sid, { role: 'assistant', content });
   res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: modelUsed })}\n\n`);
   res.end();
   return content;
