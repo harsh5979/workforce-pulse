@@ -1,6 +1,6 @@
 'use client';
 
-import { Bot, Sparkles } from 'lucide-react';
+import { Cpu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 /**
@@ -22,11 +22,10 @@ export function AICopilot() {
     <button
       onClick={handleNavigate}
       aria-label="Open AI Workforce Copilot"
-      className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-primary to-teal-600 text-white font-bold shadow-2xl hover:opacity-95 hover:scale-105 transition-all border border-white/20 active:scale-95 lg:hidden"
+      className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-6 py-3.5 rounded-full bg-primary text-primary-foreground font-bold shadow-2xl hover:opacity-90 hover:-translate-y-1 transition-all border border-primary/50 active:scale-95"
     >
-      <Bot className="w-5 h-5 text-amber-300 animate-bounce shrink-0" />
-      <span className="text-sm font-sans font-extrabold">AI Copilot</span>
-      <Sparkles className="w-4 h-4 text-amber-200 shrink-0" />
+      <Cpu className="w-5 h-5 shrink-0" />
+      <span className="text-sm font-sans font-extrabold tracking-wide uppercase">AI Copilot</span>
     </button>
   );
 }

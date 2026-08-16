@@ -1,3 +1,7 @@
+---
+tags: [api, endpoints, backend, rest]
+aliases: [API, Endpoints]
+---
 # Workforce Pulse — REST & Streaming API Reference
 
 The Workforce Pulse backend server (`http://localhost:4000`) exposes a clean, type-safe REST API powered by Express, TypeScript, and Drizzle ORM, with native Server-Sent Events (SSE) streaming for grounded AI inference.

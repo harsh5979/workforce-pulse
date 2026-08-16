@@ -8,7 +8,8 @@ import { selectToolSchemas }        from './ai.schema-selector';
 import { chatbotTools }             from './tools';          // ← all 5 schemas (mismatch fallback)
 import { executeTool }              from './tool-handlers';
 import { addMessage, getHistory,
-         createSession, getSession } from './conversation.store';
+         getOrCreateSession } from './conversation.store';
+import { buildCompactAIPrompt }     from './context-builder';
 import { logger }                   from '../../utils/logger';
 import { Response }                 from 'express';
 
@@ -41,7 +42,7 @@ async function streamDirect(
     res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
     await new Promise(r => setTimeout(r, delayMs));
   }
-  addMessage(sid, { role: 'assistant', content: text });
+  await addMessage(sid, { role: 'assistant', content: text });
   res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model })}\n\n`);
   res.end();
   return text;
@@ -79,11 +80,25 @@ export async function streamAIChat(
 ): Promise<string> {
 
   // ── 1. SESSION ──────────────────────────────────────────────────────────────
-  const sid = sessionId && getSession(sessionId) ? sessionId : createSession();
+  const sid = await getOrCreateSession(user?.id || 'default');
 
-  // ── 2. HISTORY — last 2 messages only (= 1 turn ≈ 60–130 tokens) ───────────
-  const history = getHistory(sid).filter(m => m.role !== 'system').slice(-2);
-  addMessage(sid, { role: 'user', content: userMessage });
+  // ── 2. HISTORY — last 3 turns (6 msgs). Wider context prevents redundant re-queries on follow-ups.
+  const allHistory = await getHistory(sid);
+  // Token saving: truncate markdown tables in the context passed to the LLM
+  // (We store the full response in the DB for UI rendering, but the LLM doesn't need all rows).
+  const history = allHistory.filter(m => m.role !== 'system').slice(-6).map(m => {
+    if (m.role === 'assistant' && m.content.includes('|') && m.content.length > 300) {
+      const firstSentence = m.content.split(/(?<=\.\s)|\n/)[0]?.trim() ?? '';
+      return { 
+        ...m, 
+        content: firstSentence.length > 20 
+          ? firstSentence + ' …[full table delivered to user]' 
+          : m.content.slice(0, 200) + '…' 
+      };
+    }
+    return m;
+  });
+  await addMessage(sid, { role: 'user', content: userMessage });
 
   // ── 3. WRITE-INTENT GATE (0 LLM tokens) ────────────────────────────────────
   const lc = userMessage.toLowerCase();
@@ -100,25 +115,32 @@ export async function streamAIChat(
       res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
       await new Promise(r => setTimeout(r, 8));
     }
-    addMessage(sid, { role: 'assistant', content: GREETING_COMPACT }); // compact in history
+    await addMessage(sid, { role: 'assistant', content: GREETING_COMPACT }); // compact in history
     res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: 'greeting' })}\n\n`);
     res.end();
     return GREETING_FULL;
   }
 
   // ── 5. SCOPE GATE (0 LLM tokens) ───────────────────────────────────────────
-  const priorTurns = getHistory(sid).filter(m => m.role === 'user').length;
+  const priorTurns = allHistory.filter(m => m.role === 'user').length;
   if (!SCOPE_RE.test(userMessage) && !FOLLOWUP_RE.test(userMessage.trim()) && priorTurns <= 1) {
     logger.info(`Scope-gate rejected off-topic query: "${userMessage.slice(0, 60)}"`);
     return streamDirect(res, sid, SCOPE_DENIAL, 'scope-gate');
   }
 
   // ── 6. BUILD MESSAGE CONTEXT ────────────────────────────────────────────────
+  // Bug 3 fix: inject compact context so simple queries skip tool calls entirely.
+  // buildCompactAIPrompt() is cached for 5 min — no extra DB cost.
+  const compactCtx = await buildCompactAIPrompt();
+
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: buildSystemPersona() },
-    ...history.map(m => ({ 
-       role: m.role as 'user' | 'assistant', 
-       content: m.role === 'user' ? `<user_input>\n${m.content}\n</user_input>` : m.content 
+    { role: 'system', content: `${buildSystemPersona()}
+
+[LIVE WORKFORCE DATA — use these numbers directly for simple queries. Call a tool only when you need more detail or filtering.]
+${compactCtx}` },
+    ...history.map(m => ({
+       role: m.role as 'user' | 'assistant',
+       content: m.role === 'user' ? `<user_input>\n${m.content}\n</user_input>` : m.content
     })),
     { role: 'user', content: `<user_input>\n${userMessage}\n</user_input>` },
     { role: 'system', content: buildSystemRules() }
@@ -126,7 +148,70 @@ export async function streamAIChat(
 
   setSseHeaders(res, sid);
 
-  // ── 7. STEP 1 — Tool intent resolution ─────────────────────────────────────
+  // ── 7. FAST-PATH: answer directly from compact context (skip Step 1 + tool call) ─────────
+  // For standard ranking/summary queries the context block already has everything.
+  // Single LLM call instead of two = ~50% latency reduction on free models.
+  const isFastPath = (() => {
+    const m = userMessage.toLowerCase();
+    // Queries that can be answered from the pre-loaded compact context:
+    const categoryQ = /\b(categor|automat|roi|task\s*type|priority|automate\s+first)\b/.test(m);
+    const deptQ     = /\b(department|dept|division|team|breakdown|overview)\b/.test(m) && !/\b(employee|person|who|individual|staff\s+list)\b/.test(m);
+    const rankQ     = /\b(top|most|highest|lowest|best|worst|rank|compare|vs|versus)\b/.test(m) && !/\b(week|trend|over\s*time)\b/.test(m);
+    const headlineQ = /\b(total|overall|summary|how\s+many|how\s+much|average|mean|recap)\b/.test(m);
+    // Never fast-path: employee-specific, weekly trends (need tool for accurate data)
+    const needsTool = /\b(employee|staff|person|who|week|trend|anomal|outlier|specific|filter\s+by)\b/.test(m);
+    return (categoryQ || deptQ || rankQ || headlineQ) && !needsTool;
+  })();
+
+  if (isFastPath) {
+    logger.info(`[Fast-path] Answering from compact context (skipping Step 1 tool call)`);
+    let fullResponse = '';
+    let fpModelUsed = '';
+    let fpAllRateLimited = true;
+    for (let i = 0; i < MODELS.length; i++) {
+      const model = MODELS[i];
+      try {
+        logger.info(`[Fast-path] Streaming via ${model}`);
+        const stream = await openai.chat.completions.create({
+          model,
+          messages: [
+            { role: 'system', content: buildStep3Prompt() + `\n\n[LIVE WORKFORCE DATA]\n${compactCtx}` },
+            { role: 'user', content: `<user_input>\n${userMessage}\n</user_input>` },
+          ],
+          stream    : true,
+          max_tokens: 600,
+          temperature: 0.0,
+        });
+        fpModelUsed = model;
+        fpAllRateLimited = false;
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta?.content ?? '';
+          if (delta) {
+            fullResponse += delta;
+            res.write(`data: ${JSON.stringify({ content: delta, sessionId: sid })}\n\n`);
+          }
+        }
+        break;
+      } catch (err: any) {
+        const is429 = err.status === 429 || err.message?.includes('429') || err.message?.includes('rate');
+        logger.warn(`[Fast-path] ${model} failed${is429 ? ' (429)' : ''}: ${err.message}`);
+        if (!is429) fpAllRateLimited = false;
+        if (i === MODELS.length - 1) {
+          res.write(`data: ${JSON.stringify(fpAllRateLimited ? { rateLimited: true } : { error: 'Connection error. Please retry.' })}\n\n`);
+          res.end();
+          return '';
+        }
+      }
+    }
+    if (fullResponse) {
+      await addMessage(sid, { role: 'assistant', content: fullResponse });
+    }
+    res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: fpModelUsed })}\n\n`);
+    res.end();
+    return fullResponse;
+  }
+
+  // ── 8. STEP 1 — Tool intent resolution (only reached when fast-path can’t answer) ──
   // Selective schema: send only the 1 most-likely schema (~75 tokens) instead
   // of all 5 (~380 tokens). Saves ~305 tokens on most requests.
   //
@@ -145,9 +230,10 @@ export async function streamAIChat(
       const completion = await openai.chat.completions.create({
         model,
         messages,
-        tools       : schemas,
-        tool_choice : 'auto',
-        temperature : 0.0,
+        tools      : schemas,
+        tool_choice: 'auto',
+        temperature: 0.0,
+        max_tokens : 150,  // Step 1 only outputs a tool call — cap to avoid idle thinking tokens
       });
       firstResponse  = completion.choices[0].message;
       modelUsed      = model;
@@ -246,13 +332,10 @@ export async function streamAIChat(
         }
       }
 
-      // Truncate history entry to prevent token bloat on future turns.
-      // The full answer was already streamed to the user.
+      // The full table is streamed to the user and saved to the DB.
+      // (We dynamically truncate it when loading history for the next prompt to save tokens).
       if (fullResponse) {
-        const histContent = fullResponse.length > 400
-          ? fullResponse.slice(0, 400) + '…[full response delivered to user]'
-          : fullResponse;
-        addMessage(sid, { role: 'assistant', content: histContent });
+        await addMessage(sid, { role: 'assistant', content: fullResponse });
       }
 
       res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: modelUsed })}\n\n`);
@@ -274,7 +357,7 @@ export async function streamAIChat(
     res.write(`data: ${JSON.stringify({ content: word, sessionId: sid })}\n\n`);
     await new Promise(r => setTimeout(r, 5));
   }
-  addMessage(sid, { role: 'assistant', content });
+  await addMessage(sid, { role: 'assistant', content });
   res.write(`data: ${JSON.stringify({ done: true, sessionId: sid, model: modelUsed })}\n\n`);
   res.end();
   return content;

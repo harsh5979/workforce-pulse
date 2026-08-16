@@ -1,3 +1,7 @@
+---
+tags: [deployment, devops, production, docker]
+aliases: [Deployment, Docker]
+---
 # Workforce Pulse — Production Deployment & DevOps Guide
 
 This guide covers deploying **Workforce Pulse** to a production Linux VPS utilizing **Docker Compose** (PostgreSQL + Backend + Frontend + Nginx) and setting up automated zero-downtime CI/CD via **GitHub Actions**.

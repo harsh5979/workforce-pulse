@@ -1,3 +1,7 @@
+---
+tags: [data, etl, csv, pipeline, audit]
+aliases: [Data Ingestion, ETL]
+---
 # Workforce Pulse — Data Ingestion & Hygiene Audit Report
 
 This document records the exact programmatic procedures designed to resolve enterprise data inconsistencies, schema corruption, and dirty formatting within the input datasets (`employees.json` and `activity_logs.csv`).
