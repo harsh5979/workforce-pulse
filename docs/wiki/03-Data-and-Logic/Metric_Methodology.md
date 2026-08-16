@@ -1,3 +1,7 @@
+---
+tags: [metrics, math, logic, calculation]
+aliases: [Metrics, Methodology]
+---
 # Workforce Pulse — Metric & Analytical Methodology
 
 This document outlines the mathematical models, formulas, assumptions, and algorithmic derivations implemented across the **Workforce Pulse** analytical suite. Every numerical insight presented in the user interface is generated deterministically using these verified procedures.

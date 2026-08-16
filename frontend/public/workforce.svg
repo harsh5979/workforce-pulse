@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <!-- Workforce Bar + Pulse Graphic -->
-  <path d="M110 320V250" stroke="#6366F1" stroke-width="32" stroke-linecap="round"/>
-  <path d="M190 320V180" stroke="#818CF8" stroke-width="32" stroke-linecap="round"/>
+  <path d="M110 320V250" stroke="#14532D" stroke-width="32" stroke-linecap="round"/>
+  <path d="M190 320V180" stroke="#166534" stroke-width="32" stroke-linecap="round"/>
   
   <!-- Pulse Activity Spike -->
   <path d="M270 320V120L350 220H410" 
-        stroke="#10B981" 
+        stroke="#22C55E" 
         stroke-width="36" 
         stroke-linecap="round" 
         stroke-linejoin="round"/>
 
   <!-- Accent Node -->
-  <circle cx="410" cy="220" r="24" fill="#34D399"/>
+  <circle cx="410" cy="220" r="24" fill="#4ADE80"/>
 </svg>

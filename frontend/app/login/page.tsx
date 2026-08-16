@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Lock, Mail, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowRight, Lock, Mail, AlertTriangle, Loader2, LifeBuoy, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 
 export default function LoginPage() {
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const login = useAuthStore((state) => state.login);
 
@@ -32,18 +34,18 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col selection:bg-primary/20">
-      
+
       {/* Split Screen Container */}
       <div className="flex-1 flex flex-col lg:flex-row">
-        
+
         {/* Left Side: Login Form */}
         <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-20 xl:px-24">
           <div className="mx-auto w-full max-w-sm lg:w-96">
-            
+
             {/* Logo Header */}
             <div className="mb-10">
               <div className="w-12 h-12 bg-primary flex items-center justify-center mb-4 rounded-none">
-                <img src="/workforce.svg" alt="Workforce Pulse Logo" className="w-8 h-8 object-contain invert brightness-0" />
+                <img src="/workforce.svg" alt="Workforce Pulse Logo" className="w-8 h-8 object-contain" />
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-foreground">
                 Sign In
@@ -56,7 +58,7 @@ export default function LoginPage() {
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-4">
-                
+
                 {/* Email Input */}
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wide">
@@ -87,13 +89,25 @@ export default function LoginPage() {
                       <Lock className="h-4 w-4" />
                     </div>
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2.5 bg-background border border-border text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground rounded-none transition-colors"
+                      className="w-full pl-10 pr-10 py-2.5 bg-background border border-border text-foreground text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground rounded-none transition-colors"
                       placeholder="••••••••"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground focus:outline-none transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -132,10 +146,10 @@ export default function LoginPage() {
 
         {/* Right Side: Company Intro (Hidden on mobile) */}
         <div className="hidden lg:flex flex-1 bg-foreground items-center justify-center relative overflow-hidden p-12">
-          
+
           {/* Subtle Grid Background Pattern (Inherits from text color context) */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:24px_24px]" />
-          
+
           <div className="max-w-md relative z-10">
             <h2 className="text-4xl font-extrabold text-background tracking-tight leading-tight mb-6">
               Drive operational excellence with real-time workforce intelligence.
@@ -144,8 +158,8 @@ export default function LoginPage() {
               Workforce Pulse provides deep insights into employee productivity, automation opportunities, and resource allocation. Join thousands of teams optimizing their workflows today.
             </p>
             <div className="flex items-center gap-4 text-sm text-secondary font-medium border-l-2 border-secondary pl-4">
-              &quot;The most critical operational tool we use.&quot; 
-              <br/>&mdash; Operations Director
+              &quot;The most critical operational tool we use.&quot;
+              <br />&mdash; Operations Director
             </div>
           </div>
         </div>
@@ -154,13 +168,16 @@ export default function LoginPage() {
       {/* Footer */}
       <footer className="w-full py-6 px-4 border-t border-border bg-card">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-muted-foreground font-medium">
-            &copy; {new Date().getFullYear()} Workforce Pulse, Inc. All rights reserved.
+          <p className="text-xs text-muted-foreground font-medium flex items-center gap-1 flex-wrap justify-center md:justify-start">
+            &copy; {new Date().getFullYear()} Workforce Pulse. Developed by
+            <a href="https://www.linkedin.com/in/harsh-prajapati-a2089025b/" target="_blank" rel="noopener noreferrer" className="hover:text-foreground underline underline-offset-2 transition-colors">
+              Harsh Prajapati
+            </a>
           </p>
           <div className="flex gap-6 text-xs text-muted-foreground font-medium">
-            <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-foreground transition-colors">Contact Support</a>
+            <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+            <Link href="/support" className="hover:text-foreground transition-colors">Contact Support</Link>
           </div>
         </div>
       </footer>
