@@ -7,7 +7,7 @@ import { logger } from '../../utils/logger';
 // Eliminates 6 SQL queries re-running on rapid follow-up messages in same session.
 // CSV upload immediately invalidates the cache via invalidateContextCache().
 let _contextCache: { text: string; builtAt: number } | null = null;
-const CACHE_TTL_MS = 10_000; // 10 seconds
+const CACHE_TTL_MS = 300_000; // 5 minutes — data doesn't change between conversations
 
 /** Force-bust the cache (call this after CSV ingestion / db:seed) */
 export function invalidateContextCache(): void {

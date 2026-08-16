@@ -69,7 +69,7 @@ const MD_COMPONENTS: React.ComponentProps<typeof ReactMarkdown>['components'] = 
     }
     return <li className="pl-1" {...props}>{children}</li>;
   },
-  strong: ({ node, ...props }) => <strong className="font-bold text-primary-foreground" {...props} />,
+  strong: ({ node, ...props }) => <strong className="font-bold text-primary" {...props} />,
   em: ({ node, ...props }) => <em className="italic text-foreground" {...props} />,
   pre: ({ node, ...props }) => <pre className="block bg-muted text-foreground p-3 rounded border border-border overflow-x-auto my-3" {...props} />,
   code: ({ node, className, ...props }) =>
