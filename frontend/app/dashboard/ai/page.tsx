@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Send, Sparkles, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, RefreshCw, Clock } from 'lucide-react';
+import { Send, Sparkles, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, RefreshCw, Clock, Trash2, X } from 'lucide-react';
 import { SUGGESTED_AI_QUERIES, API_BASE_URL } from '@/lib/constants';
 import DOMPurify from 'dompurify';
 import ReactMarkdown from 'react-markdown';
@@ -9,7 +9,7 @@ import remarkGfm from 'remark-gfm';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
 import { CitationChip } from '@/components/ui/citation-chip';
-import { useAIChatHistory, useAIBriefing } from '@/hooks/use-ai-chat';
+import { useAIChatHistory, useAIBriefing, useClearAIHistory } from '@/hooks/use-ai-chat';
 
 interface Message {
   id: string;
@@ -332,7 +332,8 @@ function AIMessageBody({ content, msgId, isStreaming, onSuggestionClick }: { con
 export default function AIPage() {
   const { data: historyData, fetchNextPage, hasNextPage, isFetchingNextPage, status: historyStatus } = useAIChatHistory();
   const { data: briefingData, status: briefingStatus } = useAIBriefing();
-  
+  const clearHistory = useClearAIHistory();
+
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -340,6 +341,7 @@ export default function AIPage() {
   const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
   const [pendingRetryQuery, setPendingRetryQuery] = useState<string | null>(null);
   const [rateLimitMsgId, setRateLimitMsgId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const retryCountRef = useRef(0);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -478,14 +480,74 @@ export default function AIPage() {
     }
   };
 
+  const handleClearConfirm = useCallback(async () => {
+    await clearHistory.mutateAsync();
+    setLocalMessages([]);
+    setRateLimitCountdown(null);
+    setPendingRetryQuery(null);
+    setRateLimitMsgId(null);
+    setInput('');
+    setShowClearConfirm(false);
+  }, [clearHistory]);
+
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden relative font-sans">
+        {/* ── Clear confirmation overlay ── */}
+        {showClearConfirm && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+            <div className="bg-card border border-border shadow-2xl rounded-none p-6 w-[min(340px,90vw)] flex flex-col gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-none bg-destructive/10 border border-destructive/20 shrink-0">
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">Clear conversation?</p>
+                  <p className="text-xs text-muted-foreground mt-1">All messages will be permanently deleted from the database. This cannot be undone.</p>
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  disabled={clearHistory.isPending}
+                  className="px-4 py-2 rounded-none text-xs font-bold border border-border bg-background hover:bg-muted transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClearConfirm}
+                  disabled={clearHistory.isPending}
+                  className="px-4 py-2 rounded-none text-xs font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {clearHistory.isPending ? (
+                    <><RefreshCw className="w-3 h-3 animate-spin" /> Clearing…</>
+                  ) : (
+                    <><Trash2 className="w-3 h-3" /> Clear All</>  
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Messages Area */}
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-3 sm:px-6 bg-background/40 relative print:overflow-visible print:bg-transparent" style={{ WebkitOverflowScrolling: 'touch' }}
         >
+          {/* Clear button — top-right of message area, only when there are messages */}
+          {(serverMessages.length > 0 || localMessages.length > 0) && !isLoading && (
+            <div className="sticky top-2 z-10 flex justify-end pointer-events-none">
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                title="Clear conversation"
+                className="pointer-events-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-none text-[10px] font-bold font-mono uppercase tracking-wider text-muted-foreground hover:text-destructive border border-border/50 hover:border-destructive/40 bg-card/90 backdrop-blur-sm shadow-sm transition-all active:scale-95"
+              >
+                <Trash2 className="w-3 h-3" />
+                Clear
+              </button>
+            </div>
+          )}
           {isFetchingNextPage && (
             <div className="flex justify-center py-4 text-xs text-muted-foreground animate-pulse">
               Syncing older messages...

@@ -11,12 +11,11 @@ const rawApiKey     = isGroq ? groqKey! : openrouterKey;
 
 // ── Startup diagnostics — visible in nodemon terminal ────────────────────────
 logger.info(`=== AI SERVICE STARTUP ===`);
-logger.info(`Provider : ${isGroq ? '✅ GROQ  (fast LPU inference)' : '⚠️  OpenRouter (GPU shared)'}`);
-logger.info(`API Key  : ${rawApiKey ? rawApiKey.slice(0, 12) + '...' + rawApiKey.slice(-4) : '❌ MISSING'}`);
+logger.info(`Provider : ${isGroq ? '✅ GROQ  (LPU inference — qwen3.8-27b)' : '⚠️  OpenRouter (fallback)'}`);
+logger.info(`API Key  : ${rawApiKey ? rawApiKey.slice(0, 12) + '...' + rawApiKey.slice(-4) : '❌ MISSING — set GROQ_API_KEY in .env'}`);
 logger.info(`Base URL : ${isGroq ? 'https://api.groq.com/openai/v1' : 'https://openrouter.ai/api/v1'}`);
-logger.info(`Models   : ${isGroq ? 'llama-3.1-8b-instant → gemma2-9b-it → llama-3.3-70b' : 'gemini-flash → llama-8b → gpt-oss-20b...'}`);
-if (!isGroq && groqKey) logger.warn(`GROQ_API_KEY found but does NOT start with "gsk_" — falling back to OpenRouter`);
-if (!rawApiKey)         logger.error(`❌ No API key found! Set GROQ_API_KEY or OPENROUTER_API_KEY in .env`);
+if (!isGroq && groqKey) logger.warn(`GROQ_API_KEY found but does NOT start with "gsk_" — check your key`);
+if (!rawApiKey)         logger.error(`❌ No API key! Add GROQ_API_KEY=gsk_... to backend/.env`);
 logger.info(`=========================`);
 
 // ── OpenAI-compatible client ─────────────────────────────────────────────────
@@ -30,24 +29,27 @@ export const openai = new OpenAI({
   },
 });
 
-// ── Model fallback chains — tried in priority order ──────────────────────────
-// If model i returns 429 (rate-limited) or fails, the service retries with model i+1.
+// ── Model fallback chain ─────────────────────────────────────────────────────
+// Live-tested on 2026-08-28 via Groq /v1/models + /v1/chat/completions
 //
-// ✅ GROQ model IDs — official per console.groq.com/docs/models
-//    Requires GROQ_API_KEY=gsk_... in .env
+// DECOMMISSIONED (do NOT use — absent from Groq API):
+//   llama-3.3-70b-versatile, llama-3.1-8b-instant, gemma2-9b-it, mixtral-8x7b-32768
+//
+// ACTIVE + TOOL-CALLING VERIFIED:
+//   qwen/qwen3.8-27b  ✅  tool calls + streaming text both confirmed
+//
+// ACTIVE BUT BROKEN for tool calls:
+//   openai/gpt-oss-20b, openai/gpt-oss-120b — return empty content
+//   qwen/qwen3.6-27b                        — leaks <think> tags
+//   groq/compound, groq/compound-mini       — 400 on tool_choice
 export const MODELS: string[] = isGroq ? [
-  'llama-3.3-70b-versatile',  // ✅ Best quality — full tool-calling, 128k ctx
-  'llama-3.1-8b-instant',     // ✅ Ultra-fast LPU fallback
-  'gemma2-9b-it',             // ✅ Google Gemma2 fallback
-  'mixtral-8x7b-32768',       // ✅ Large context fallback (32k)
+  'qwen/qwen3.8-27b',     // ✅ PRIMARY — tool calls + streaming verified live
+  'openai/gpt-oss-120b',  // ⚠️  FALLBACK — 131k ctx (may return empty, auto-skipped)
+  'openai/gpt-oss-20b',   // ⚠️  FALLBACK — 131k ctx (may return empty, auto-skipped)
 ] : [
-  // ✅ OpenRouter FREE models — verified live 2026-08-28 via /api/v1/models
-  //    All support tool_choice (confirmed via supported_parameters field)
-  'nvidia/nemotron-3-ultra-550b-a55b:free',  // 550B — highest quality free model
-  'minimax/minimax-m3:free',                  // 1M ctx — great for long context
-  'nvidia/nemotron-3-super-120b-a12b:free',  // 120B — strong reasoning
-  'google/gemma-4-31b-it:free',              // 262k ctx — Google Gemma4
-  'inclusionai/ling-3.0-flash-fin:free',     // Fast financial/analytical model
-  'z-ai/glm-5.2:free',                       // 256k ctx fallback
+  // OpenRouter emergency fallback — only used when GROQ_API_KEY is missing
+  'minimax/minimax-m3:free',                 // ✅ Tool calls verified
+  'nvidia/nemotron-3-super-120b-a12b:free', // ✅ Tool calls verified
+  'inclusionai/ling-3.0-flash-fin:free',    // ✅ Tool calls verified
 ];
 

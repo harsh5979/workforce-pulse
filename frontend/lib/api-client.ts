@@ -80,6 +80,9 @@ export const api = {
   getAIChatHistory: (cursor?: string): Promise<any> =>
     apiClient.get('/api/ai/session/current', { params: { cursor, limit: 7 } }),
 
+  clearAIHistory: (): Promise<any> =>
+    apiClient.delete('/api/ai/session/current'),
+
   // Health
   health: (): Promise<any> =>
     apiClient.get('/api/health'),

@@ -13,6 +13,23 @@ import { buildCompactAIPrompt }     from './context-builder';
 import { logger }                   from '../../utils/logger';
 import { Response }                 from 'express';
 
+// ───────────────────────────────────────────────────────────────────────────────
+// THINK-TAG STRIPPER (Qwen3 / DeepSeek emit <think>...</think> reasoning blocks)
+// ───────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Strip <think>...</think> blocks from the accumulated response.
+ * Called incrementally on each chunk so reasoning tokens never reach the client.
+ * Returns only the visible portion after the closing </think> tag (if any).
+ */
+function stripThinkTags(acc: string): string {
+  // Remove complete <think>...</think> blocks
+  let result = acc.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  // If a <think> block is open but not closed yet, strip from <think> to end
+  result = result.replace(/<think>[\s\S]*/i, '');
+  return result.trimStart();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // INTERNAL HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -184,11 +201,20 @@ ${compactCtx}` },
         });
         fpModelUsed = model;
         fpAllRateLimited = false;
+        let rawAcc = '';
         for await (const chunk of stream) {
           const delta = chunk.choices[0]?.delta?.content ?? '';
           if (delta) {
-            fullResponse += delta;
-            res.write(`data: ${JSON.stringify({ content: delta, sessionId: sid })}\n\n`);
+            rawAcc += delta;
+            // Strip <think> reasoning tokens from Qwen3/DeepSeek models
+            const visible = stripThinkTags(rawAcc);
+            // Only stream the newly visible characters
+            const prev = stripThinkTags(rawAcc.slice(0, rawAcc.length - delta.length));
+            const newVisible = visible.slice(prev.length);
+            if (newVisible) {
+              fullResponse += newVisible;
+              res.write(`data: ${JSON.stringify({ content: newVisible, sessionId: sid })}\n\n`);
+            }
           }
         }
         break;
