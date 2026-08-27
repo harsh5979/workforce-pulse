@@ -17,6 +17,8 @@ interface Message {
   text: string;
   isStreaming?: boolean;
   isRateLimited?: boolean; // all free models returned 429
+  isError?: boolean;
+  query?: string;
 }
 
 
@@ -418,18 +420,21 @@ export default function AIPage() {
     setRateLimitCountdown(null); setPendingRetryQuery(null); retryCountRef.current = 0;
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: query };
     const aiId = (Date.now() + 1).toString();
-    setLocalMessages(p => [...p, userMsg, { id: aiId, sender: 'ai', text: '', isStreaming: true }]);
+    setLocalMessages(p => [...p, userMsg, { id: aiId, sender: 'ai', text: '', isStreaming: true, query }]);
     setInput(''); setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         credentials: 'include', body: JSON.stringify({ message: query }),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Connection error.'); }
+      if (!res.ok) { 
+        const e = await res.json().catch(() => ({})); 
+        throw new Error(e.error || 'Connection error.'); 
+      }
       const reader = res.body?.getReader();
-      if (!reader) throw new Error();
+      if (!reader) throw new Error('No response stream received');
       const dec = new TextDecoder();
-      let acc = '', wasRateLimited = false;
+      let acc = '', wasRateLimited = false, hadError = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -441,17 +446,33 @@ export default function AIPage() {
             const p = JSON.parse(str);
             if (p.rateLimited) {
               wasRateLimited = true;
-              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false, isRateLimited: true } : m));
+              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false, isRateLimited: true, query } : m));
               setRateLimitMsgId(aiId); setPendingRetryQuery(query); setRateLimitCountdown(30); setIsLoading(false);
-            } else if (p.error) { acc += p.error; setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m)); }
-            else if (p.content) { acc += p.content; setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m)); }
+            } else if (p.isError || (p.error && !acc)) { 
+              hadError = true;
+              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: p.error || 'Connection error. Please retry.', isStreaming: false, isError: true, query } : m));
+            } else if (p.error) {
+              acc += p.error;
+              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m));
+            } else if (p.content) { 
+              acc += p.content; 
+              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m)); 
+            }
           } catch { /* ignore */ }
         }
       }
-      setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false } : m));
-    } catch (e) {
+      if (!hadError && !wasRateLimited) {
+        setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false } : m));
+      }
+    } catch (e: any) {
       console.error(e);
-      setLocalMessages(ms => ms.filter(m => m.id !== aiId));
+      setLocalMessages(ms => ms.map(m => m.id === aiId ? {
+        ...m,
+        text: e.message || 'Connection error. Please retry.',
+        isStreaming: false,
+        isError: true,
+        query,
+      } : m));
     } finally {
       setIsLoading(false);
     }
@@ -478,7 +499,28 @@ export default function AIPage() {
                     <p className="text-xs sm:text-sm font-medium leading-relaxed">{m.text}</p>
                   ) : (
                     <div className="space-y-2">
-                      {m.isRateLimited ? (
+                      {m.isError ? (
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3 p-3 rounded-none bg-destructive/10 border border-destructive/30">
+                            <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-destructive">Connection Issue</p>
+                              <p className="text-[11px] text-foreground/90 mt-0.5">
+                                {m.text || 'Unable to connect to inference service.'}
+                              </p>
+                            </div>
+                          </div>
+                          {m.query && (
+                            <button
+                              onClick={() => sendMessage(m.query!)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-primary text-primary-foreground text-xs font-bold transition-all active:scale-95 hover:bg-primary/90"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              Retry Query
+                            </button>
+                          )}
+                        </div>
+                      ) : m.isRateLimited ? (
                         <div className="space-y-3">
                           <div className="flex items-start gap-3 p-3 rounded-none bg-amber-500/10 border border-amber-500/30">
                             <AlertTriangle className="w-4 h-4 text-accent shrink-0 mt-0.5" />

@@ -31,21 +31,19 @@ export const openai = new OpenAI({
 });
 
 // ── Model fallback chains — tried in priority order ──────────────────────────
-// If model i returns 429 (rate-limited), the service retries with model i+1.
+// If model i returns 429 (rate-limited) or fails, the service retries with model i+1.
 export const MODELS: string[] = isGroq ? [
-  'llama-3.1-8b-instant',    // ✅ 14,400 req/day — fastest, ideal for structured data
-  'llama-3.3-70b-versatile', // ✅ 500 req/day — strong quality fallback
-  'llama3-8b-8192',          // ✅ Stable older model, good general fallback
-  'llama-3.1-70b-versatile', // ✅ High quality, lower rate limit — last resort
-  // ❌ gemma2-9b-it       — decommissioned by Groq (removed)
-  // ❌ mixtral-8x7b-32768 — decommissioned by Groq (removed)
+  'openai/gpt-oss-20b',     // ✅ Ultra-fast LPU inference, structured tool calls & reasoning
+  'openai/gpt-oss-120b',    // ✅ Higher capacity fallback
+  'groq/compound',          // ✅ Multi-model composite fallback
+  'allam-2-7b',             // ✅ Fast fallback
+  'qwen/qwen3.6-27b',       // ✅ Deep reasoning fallback
 ] : [
-  'google/gemini-flash-1.5:free',           // ~200 t/s — most reliable free model
-  'meta-llama/llama-3.1-8b-instruct:free',  // ~80 t/s, small = fast
-  'openai/gpt-oss-20b:free',                // Good quality, moderate speed
-  'openai/gpt-oss-120b:free',               // High quality, slower
-  'google/gemma-4-31b-it:free',             // Fallback
-  'inclusionai/ling-3.0-flash:free',        // Fallback
-  'nvidia/nemotron-3-super-120b-a12b:free', // Last resort — large model
+  'minimax/minimax-m3:free',               // ✅ Active OpenRouter free tier with full tool-calling
+  'inclusionai/ling-3.0-flash-fin:free',  // ✅ High speed financial/analytical free model
+  'google/gemma-4-31b-it:free',            // ✅ Google Gemma-4 free model
+  'google/gemma-4-26b-a4b-it:free',        // ✅ Google Gemma-4 fast free model
+  'z-ai/glm-5.2:free',                     // ✅ GLM-5 free model
+  'liquid/lfm-2.5-2.6b:free',              // ✅ Fast compact fallback
 ];
 
