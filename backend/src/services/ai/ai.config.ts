@@ -32,18 +32,22 @@ export const openai = new OpenAI({
 
 // ── Model fallback chains — tried in priority order ──────────────────────────
 // If model i returns 429 (rate-limited) or fails, the service retries with model i+1.
+//
+// ✅ GROQ model IDs — official per console.groq.com/docs/models
+//    Requires GROQ_API_KEY=gsk_... in .env
 export const MODELS: string[] = isGroq ? [
-  'openai/gpt-oss-20b',     // ✅ Ultra-fast LPU inference, structured tool calls & reasoning
-  'openai/gpt-oss-120b',    // ✅ Higher capacity fallback
-  'groq/compound',          // ✅ Multi-model composite fallback
-  'allam-2-7b',             // ✅ Fast fallback
-  'qwen/qwen3.6-27b',       // ✅ Deep reasoning fallback
+  'llama-3.3-70b-versatile',  // ✅ Best quality — full tool-calling, 128k ctx
+  'llama-3.1-8b-instant',     // ✅ Ultra-fast LPU fallback
+  'gemma2-9b-it',             // ✅ Google Gemma2 fallback
+  'mixtral-8x7b-32768',       // ✅ Large context fallback (32k)
 ] : [
-  'minimax/minimax-m3:free',               // ✅ Active OpenRouter free tier with full tool-calling
-  'inclusionai/ling-3.0-flash-fin:free',  // ✅ High speed financial/analytical free model
-  'google/gemma-4-31b-it:free',            // ✅ Google Gemma-4 free model
-  'google/gemma-4-26b-a4b-it:free',        // ✅ Google Gemma-4 fast free model
-  'z-ai/glm-5.2:free',                     // ✅ GLM-5 free model
-  'liquid/lfm-2.5-2.6b:free',              // ✅ Fast compact fallback
+  // ✅ OpenRouter FREE models — verified live 2026-08-28 via /api/v1/models
+  //    All support tool_choice (confirmed via supported_parameters field)
+  'nvidia/nemotron-3-ultra-550b-a55b:free',  // 550B — highest quality free model
+  'minimax/minimax-m3:free',                  // 1M ctx — great for long context
+  'nvidia/nemotron-3-super-120b-a12b:free',  // 120B — strong reasoning
+  'google/gemma-4-31b-it:free',              // 262k ctx — Google Gemma4
+  'inclusionai/ling-3.0-flash-fin:free',     // Fast financial/analytical model
+  'z-ai/glm-5.2:free',                       // 256k ctx fallback
 ];
 
