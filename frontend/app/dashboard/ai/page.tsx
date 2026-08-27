@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Send, Sparkles, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, RefreshCw, Clock } from 'lucide-react';
+import { Send, Sparkles, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, RefreshCw, Trash2, X } from 'lucide-react';
 import { SUGGESTED_AI_QUERIES, API_BASE_URL } from '@/lib/constants';
 import DOMPurify from 'dompurify';
 import ReactMarkdown from 'react-markdown';
@@ -9,7 +9,7 @@ import remarkGfm from 'remark-gfm';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
 import { CitationChip } from '@/components/ui/citation-chip';
-import { useAIChatHistory, useAIBriefing } from '@/hooks/use-ai-chat';
+import { useAIChatHistory, useAIBriefing, useClearAIHistory } from '@/hooks/use-ai-chat';
 
 interface Message {
   id: string;
@@ -332,15 +332,13 @@ function AIMessageBody({ content, msgId, isStreaming, onSuggestionClick }: { con
 export default function AIPage() {
   const { data: historyData, fetchNextPage, hasNextPage, isFetchingNextPage, status: historyStatus } = useAIChatHistory();
   const { data: briefingData, status: briefingStatus } = useAIBriefing();
-  
+  const clearHistory = useClearAIHistory();
+
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState<boolean>(true);
-  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
-  const [pendingRetryQuery, setPendingRetryQuery] = useState<string | null>(null);
-  const [rateLimitMsgId, setRateLimitMsgId] = useState<string | null>(null);
-  const retryCountRef = useRef(0);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -388,36 +386,8 @@ export default function AIPage() {
   }, [displayMessages]);
   useEffect(() => { if (userMessagesCount > 0) setIsSuggestionsOpen(false); }, [userMessagesCount]);
 
-  useEffect(() => {
-    if (rateLimitCountdown === null) return;
-    if (rateLimitCountdown <= 0) {
-      if (pendingRetryQuery && retryCountRef.current < 2) {
-        retryCountRef.current += 1;
-        const q = pendingRetryQuery;
-        setPendingRetryQuery(null); setRateLimitCountdown(null);
-        if (rateLimitMsgId) { setLocalMessages(p => p.filter(m => m.id !== rateLimitMsgId)); setRateLimitMsgId(null); }
-        sendMessage(q);
-      } else { setRateLimitCountdown(null); }
-      return;
-    }
-    const t = setTimeout(() => setRateLimitCountdown(c => (c ?? 1) - 1), 1000);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rateLimitCountdown]);
-
-  const retryNow = useCallback(() => {
-    if (!pendingRetryQuery) return;
-    const q = pendingRetryQuery;
-    retryCountRef.current += 1;
-    setPendingRetryQuery(null); setRateLimitCountdown(null);
-    if (rateLimitMsgId) { setLocalMessages(p => p.filter(m => m.id !== rateLimitMsgId)); setRateLimitMsgId(null); }
-    sendMessage(q);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingRetryQuery, rateLimitMsgId]);
-
   const sendMessage = async (query: string) => {
     if (!query.trim() || isLoading) return;
-    setRateLimitCountdown(null); setPendingRetryQuery(null); retryCountRef.current = 0;
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: query };
     const aiId = (Date.now() + 1).toString();
     setLocalMessages(p => [...p, userMsg, { id: aiId, sender: 'ai', text: '', isStreaming: true, query }]);
@@ -434,7 +404,7 @@ export default function AIPage() {
       const reader = res.body?.getReader();
       if (!reader) throw new Error('No response stream received');
       const dec = new TextDecoder();
-      let acc = '', wasRateLimited = false, hadError = false;
+      let acc = '', hadError = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -444,13 +414,9 @@ export default function AIPage() {
           if (!str) continue;
           try {
             const p = JSON.parse(str);
-            if (p.rateLimited) {
-              wasRateLimited = true;
-              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false, isRateLimited: true, query } : m));
-              setRateLimitMsgId(aiId); setPendingRetryQuery(query); setRateLimitCountdown(30); setIsLoading(false);
-            } else if (p.isError || (p.error && !acc)) { 
+            if (p.rateLimited || p.isError || (p.error && !acc)) {
               hadError = true;
-              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: p.error || 'Connection error. Please retry.', isStreaming: false, isError: true, query } : m));
+              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: p.error || 'Inference service unavailable. Please try again.', isStreaming: false, isError: true } : m));
             } else if (p.error) {
               acc += p.error;
               setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m));
@@ -461,31 +427,87 @@ export default function AIPage() {
           } catch { /* ignore */ }
         }
       }
-      if (!hadError && !wasRateLimited) {
+      if (!hadError) {
         setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false } : m));
       }
     } catch (e: any) {
       console.error(e);
       setLocalMessages(ms => ms.map(m => m.id === aiId ? {
         ...m,
-        text: e.message || 'Connection error. Please retry.',
+        text: e.message || 'Connection error. Please try again.',
         isStreaming: false,
         isError: true,
-        query,
       } : m));
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleClearConfirm = useCallback(async () => {
+    await clearHistory.mutateAsync();
+    setLocalMessages([]);
+    setInput('');
+    setShowClearConfirm(false);
+  }, [clearHistory]);
+
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden relative font-sans">
+        {/* ── Clear confirmation overlay ── */}
+        {showClearConfirm && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+            <div className="bg-card border border-border shadow-2xl rounded-none p-6 w-[min(340px,90vw)] flex flex-col gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-none bg-destructive/10 border border-destructive/20 shrink-0">
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">Clear conversation?</p>
+                  <p className="text-xs text-muted-foreground mt-1">All messages will be permanently deleted from the database. This cannot be undone.</p>
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  disabled={clearHistory.isPending}
+                  className="px-4 py-2 rounded-none text-xs font-bold border border-border bg-background hover:bg-muted transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleClearConfirm}
+                  disabled={clearHistory.isPending}
+                  className="px-4 py-2 rounded-none text-xs font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {clearHistory.isPending ? (
+                    <><RefreshCw className="w-3 h-3 animate-spin" /> Clearing…</>
+                  ) : (
+                    <><Trash2 className="w-3 h-3" /> Clear All</>  
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Messages Area */}
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-3 sm:px-6 bg-background/40 relative print:overflow-visible print:bg-transparent" style={{ WebkitOverflowScrolling: 'touch' }}
         >
+          {/* Clear button — top-right of message area, only when there are messages */}
+          {(serverMessages.length > 0 || localMessages.length > 0) && !isLoading && (
+            <div className="sticky top-2 z-10 flex justify-end pointer-events-none">
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                title="Clear conversation"
+                className="pointer-events-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-none text-[10px] font-bold font-mono uppercase tracking-wider text-muted-foreground hover:text-destructive border border-border/50 hover:border-destructive/40 bg-card/90 backdrop-blur-sm shadow-sm transition-all active:scale-95"
+              >
+                <Trash2 className="w-3 h-3" />
+                Clear
+              </button>
+            </div>
+          )}
           {isFetchingNextPage && (
             <div className="flex justify-center py-4 text-xs text-muted-foreground animate-pulse">
               Syncing older messages...
@@ -500,51 +522,14 @@ export default function AIPage() {
                   ) : (
                     <div className="space-y-2">
                       {m.isError ? (
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-3 p-3 rounded-none bg-destructive/10 border border-destructive/30">
-                            <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-destructive">Connection Issue</p>
-                              <p className="text-[11px] text-foreground/90 mt-0.5">
-                                {m.text || 'Unable to connect to inference service.'}
-                              </p>
-                            </div>
+                        <div className="flex items-start gap-3 p-3 rounded-none bg-destructive/10 border border-destructive/30">
+                          <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-destructive">Connection Issue</p>
+                            <p className="text-[11px] text-foreground/90 mt-0.5">
+                              {m.text || 'Inference service unavailable. Please try again.'}
+                            </p>
                           </div>
-                          {m.query && (
-                            <button
-                              onClick={() => sendMessage(m.query!)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-primary text-primary-foreground text-xs font-bold transition-all active:scale-95 hover:bg-primary/90"
-                            >
-                              <RefreshCw className="w-3.5 h-3.5" />
-                              Retry Query
-                            </button>
-                          )}
-                        </div>
-                      ) : m.isRateLimited ? (
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-3 p-3 rounded-none bg-amber-500/10 border border-amber-500/30">
-                            <AlertTriangle className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-accent">All free AI models are rate-limited (429)</p>
-                              <p className="text-[11px] text-accent/80 font-mono mt-0.5">
-                                {retryCountRef.current >= 2 ? 'Maximum auto-retries reached.' : rateLimitCountdown !== null && rateLimitMsgId === m.id ? `Auto-retrying in ${rateLimitCountdown}s…` : 'Ready to retry.'}
-                              </p>
-                            </div>
-                          </div>
-                          {rateLimitCountdown !== null && rateLimitMsgId === m.id && retryCountRef.current < 2 && (
-                            <div className="space-y-1.5">
-                              <div className="h-1.5 w-full rounded-none bg-muted overflow-hidden">
-                                <div className="h-full rounded-none bg-accent transition-all duration-1000 ease-linear" style={{ width: `${(rateLimitCountdown / 30) * 100}%` }} />
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="flex items-center gap-1.5 text-[11px] text-accent/70 font-mono"><Clock className="w-3 h-3" />Auto-retry in {rateLimitCountdown}s</span>
-                                <button onClick={retryNow} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-none bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-accent text-[11px] font-bold transition-all active:scale-95"><RefreshCw className="w-3 h-3" />Retry Now</button>
-                              </div>
-                            </div>
-                          )}
-                          {rateLimitCountdown === null && retryCountRef.current < 2 && rateLimitMsgId === m.id && (
-                            <button onClick={retryNow} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-amber-500/20 hover:bg-amber-500/35 border border-amber-500/40 text-accent text-xs font-bold transition-all active:scale-95"><RefreshCw className="w-3.5 h-3.5" />Retry</button>
-                          )}
                         </div>
                       ) : (
                         <>
@@ -593,17 +578,8 @@ export default function AIPage() {
           </div>
         </div>
 
-        {/* Bottom Panel */}
-        <div className="shrink-0 border-t border-border/70 bg-card/95 backdrop-blur-md shadow-2xl z-20 flex flex-col print:hidden" style={{ maxHeight: '60vh' }}>
-          {rateLimitCountdown !== null && (
-            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-amber-500/8 border-b border-amber-500/20 animate-fade-in">
-              <div className="flex items-center gap-2 min-w-0">
-                <Clock className="w-3.5 h-3.5 text-accent shrink-0 animate-pulse" />
-                <p className="text-[11px] font-mono text-accent/80">Rate-limited · Auto-retrying in <span className="font-black text-accent">{rateLimitCountdown}s</span></p>
-              </div>
-              <button onClick={() => { setRateLimitCountdown(null); setPendingRetryQuery(null); }} className="text-[10px] font-bold text-accent/60 hover:text-accent font-mono transition-colors shrink-0">Cancel</button>
-            </div>
-          )}
+          {/* Bottom Panel */}
+          <div className="shrink-0 border-t border-border/70 bg-card/95 backdrop-blur-md shadow-2xl z-20 flex flex-col print:hidden" style={{ maxHeight: '60vh' }}>
           <div className="border-b border-border/50 bg-card">
             <button type="button" onClick={() => setIsSuggestionsOpen(!isSuggestionsOpen)} className="w-full px-3 sm:px-6 py-2 flex items-center justify-between text-xs font-bold text-muted-foreground hover:text-foreground transition-colors group">
               <span className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] sm:text-[11px] text-primary">

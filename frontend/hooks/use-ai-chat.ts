@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 
 export function useAIChatHistory() {
@@ -22,5 +22,16 @@ export function useAIBriefing() {
     queryKey: ['ai-briefing'],
     queryFn: () => api.getAIBriefing(),
     staleTime: 1000 * 60 * 60, // 1 hour
+  });
+}
+
+export function useClearAIHistory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.clearAIHistory(),
+    onSuccess: () => {
+      // Wipe the cached pages so the message list goes back to the welcome state instantly
+      queryClient.resetQueries({ queryKey: ['ai-chat-history'] });
+    },
   });
 }
