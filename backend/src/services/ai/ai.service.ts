@@ -197,7 +197,7 @@ ${compactCtx}` },
         logger.warn(`[Fast-path] ${model} failed${is429 ? ' (429)' : ''}: ${err.message}`);
         if (!is429) fpAllRateLimited = false;
         if (i === MODELS.length - 1) {
-          res.write(`data: ${JSON.stringify(fpAllRateLimited ? { rateLimited: true } : { error: 'Connection error. Please retry.' })}\n\n`);
+          res.write(`data: ${JSON.stringify(fpAllRateLimited ? { rateLimited: true } : { error: 'Inference service unavailable. Please retry in a moment.', isError: true })}\n\n`);
           res.end();
           return '';
         }
@@ -242,7 +242,7 @@ ${compactCtx}` },
     } catch (err: any) {
       const is429          = err.status === 429 || err.message?.includes('429') || err.message?.includes('rate');
       const isToolMismatch = err.status === 400 && err.message?.includes('not in request.tools');
-      const isDecommissioned = err.message?.includes('decommissioned');
+      const isDecommissioned = err.message?.includes('decommissioned') || err.status === 404;
 
       // ── Tool mismatch: LLM picked a schema we didn't offer ──────────────────
       // Retry the SAME model once with all 5 schemas. Does not advance i.
@@ -254,14 +254,14 @@ ${compactCtx}` },
         continue;
       }
 
-      logger.warn(`Model ${model} failed${is429 ? ' (429)' : isDecommissioned ? ' (decommissioned)' : ''}: ${err.message}`);
+      logger.warn(`Model ${model} failed${is429 ? ' (429)' : isDecommissioned ? ' (decommissioned/404)' : ''}: ${err.message}`);
       if (!is429) allRateLimited = false;
 
       if (i === MODELS.length - 1) {
         res.write(`data: ${JSON.stringify(
           allRateLimited
             ? { rateLimited: true }
-            : { error: 'Too many requests due to high traffic. Please try again in a moment.' }
+            : { error: 'Inference service unavailable. Please retry in a moment.', isError: true }
         )}\n\n`);
         res.end();
         return '';
@@ -343,7 +343,7 @@ ${compactCtx}` },
       return fullResponse;
     } catch (err: any) {
       logger.error(`Step 3 stream failed: ${err.message}`);
-      res.write(`data: ${JSON.stringify({ error: 'Connection failed due to high traffic. Please try again in a moment.' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: 'Connection failed due to high traffic. Please try again in a moment.', isError: true })}\n\n`);
       res.end();
       return '';
     }
