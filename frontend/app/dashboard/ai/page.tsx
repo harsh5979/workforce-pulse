@@ -24,29 +24,29 @@ interface Message {
 
 // ─── Shared ReactMarkdown component config ─────────────────────────────────
 const MD_COMPONENTS: React.ComponentProps<typeof ReactMarkdown>['components'] = {
-  table: ({ node, ...props }) => (
+  table: ({ node, ...props }: any) => (
     <div className="my-4 overflow-x-auto rounded-none border border-border/80 shadow-lg touch-pan-x scrollbar-thin">
       <table className="w-full min-w-[460px] text-left border-collapse text-[11px] sm:text-xs" {...props} />
     </div>
   ),
-  thead: ({ node, ...props }) => <thead className="bg-muted border-b border-border" {...props} />,
-  th: ({ node, ...props }) => <th className="py-2.5 px-3 sm:py-3 sm:px-4 font-bold text-primary uppercase tracking-wider text-[10px] sm:text-[11px] whitespace-nowrap" {...props} />,
-  tbody: ({ node, ...props }) => <tbody {...props} />,
-  tr: ({ node, ...props }) => <tr className="border-b border-border transition-colors hover:bg-primary/5 even:bg-background/60 odd:bg-card" {...props} />,
-  td: ({ node, ...props }) => <td className="py-2 px-3 sm:py-3 sm:px-4 text-foreground font-medium" {...props} />,
-  blockquote: ({ node, children, ...props }) => (
+  thead: ({ node, ...props }: any) => <thead className="bg-muted border-b border-border" {...props} />,
+  th: ({ node, ...props }: any) => <th className="py-2.5 px-3 sm:py-3 sm:px-4 font-bold text-primary uppercase tracking-wider text-[10px] sm:text-[11px] whitespace-nowrap" {...props} />,
+  tbody: ({ node, ...props }: any) => <tbody {...props} />,
+  tr: ({ node, ...props }: any) => <tr className="border-b border-border transition-colors hover:bg-primary/5 even:bg-background/60 odd:bg-card" {...props} />,
+  td: ({ node, ...props }: any) => <td className="py-2 px-3 sm:py-3 sm:px-4 text-foreground font-medium" {...props} />,
+  blockquote: ({ node, children, ...props }: any) => (
     <blockquote className="border-l-4 border-primary/50 pl-4 py-1 my-3 bg-muted/20" {...props}>{children}</blockquote>
   ),
-  h1: ({ node, ...props }) => <h1 className="text-xl font-bold text-primary mt-6 mb-3" {...props} />,
-  h2: ({ node, ...props }) => <h2 className="text-lg font-bold text-primary mt-5 mb-2" {...props} />,
-  h3: ({ node, ...props }) => (
+  h1: ({ node, ...props }: any) => <h1 className="text-xl font-bold text-primary mt-6 mb-3" {...props} />,
+  h2: ({ node, ...props }: any) => <h2 className="text-lg font-bold text-primary mt-5 mb-2" {...props} />,
+  h3: ({ node, ...props }: any) => (
     <div className="flex items-center gap-2 mt-4 mb-2 first:mt-0 pb-2 border-b border-border/60">
       <div className="w-1 h-4 rounded-none bg-emerald-400 shrink-0" />
       <h3 className="text-xs font-extrabold uppercase tracking-widest text-primary font-mono" {...props} />
     </div>
   ),
-  h4: ({ node, ...props }) => <h4 className="text-base font-semibold text-primary mt-3 mb-1" {...props} />,
-  p: ({ node, children, ...props }) => {
+  h4: ({ node, ...props }: any) => <h4 className="text-base font-semibold text-primary mt-3 mb-1" {...props} />,
+  p: ({ node, children, ...props }: any) => {
     const firstChild = (node as any)?.children?.[0];
     if (firstChild?.type === 'element' && firstChild?.tagName === 'strong') {
       return (
@@ -61,9 +61,9 @@ const MD_COMPONENTS: React.ComponentProps<typeof ReactMarkdown>['components'] = 
     }
     return <p className="mb-2 last:mb-0 whitespace-pre-wrap" {...props}>{children}</p>;
   },
-  ul: ({ node, ...props }) => <ul className="my-3 space-y-2 list-none" {...props} />,
-  ol: ({ node, ...props }) => <ol className="my-3 space-y-2 list-decimal list-outside ml-4" {...props} />,
-  li: ({ node, className, children, ...props }) => {
+  ul: ({ node, ...props }: any) => <ul className="my-3 space-y-2 list-none" {...props} />,
+  ol: ({ node, ...props }: any) => <ol className="my-3 space-y-2 list-decimal list-outside ml-4" {...props} />,
+  li: ({ node, className, children, ...props }: any) => {
     const isUnordered = (node as any)?.parent?.tagName === 'ul';
     if (isUnordered) {
       return (
@@ -75,10 +75,10 @@ const MD_COMPONENTS: React.ComponentProps<typeof ReactMarkdown>['components'] = 
     }
     return <li className="pl-1" {...props}>{children}</li>;
   },
-  strong: ({ node, ...props }) => <strong className="font-bold text-primary" {...props} />,
-  em: ({ node, ...props }) => <em className="italic text-foreground" {...props} />,
-  pre: ({ node, ...props }) => <pre className="block bg-muted text-foreground p-3 rounded border border-border overflow-x-auto my-3" {...props} />,
-  code: ({ node, className, ...props }) =>
+  strong: ({ node, ...props }: any) => <strong className="font-bold text-primary" {...props} />,
+  em: ({ node, ...props }: any) => <em className="italic text-foreground" {...props} />,
+  pre: ({ node, ...props }: any) => <pre className="block bg-muted text-foreground p-3 rounded border border-border overflow-x-auto my-3" {...props} />,
+  code: ({ node, className, ...props }: any) =>
     <code className={`${className || ''} font-mono text-[11px] bg-muted/50 text-accent px-1.5 py-0.5 rounded border border-border`} {...props} />,
   a: ({ node, href, children, ...props }: any) => {
     if (href?.startsWith('citation:')) {
@@ -234,7 +234,7 @@ function AIMessageBody({ content, msgId, isStreaming, onSuggestionClick }: { con
 
   // Pre-process citations [Ref: Text] -> [Ref](citation:Text)
   // Negative lookahead prevents matching broken CHART/ACTION/CHIP tags
-  noChipsContent = noChipsContent.replace(/\[(?!(?:CHART|ACTION|CHIP)\b)([^:]+?):\s*([^\]]+?)\]/g, (match, ref, text) => {
+  noChipsContent = noChipsContent.replace(/\[(?!(?:CHART|ACTION|CHIP)\b)([^:]+?):\s*([^\]]+?)\]/g, (match: string, ref: string, text: string) => {
     return `[${ref}](citation:${encodeURIComponent(text)})`;
   });
 
@@ -346,7 +346,7 @@ export default function AIPage() {
 
   const serverMessages = useMemo(() => {
     if (!historyData) return [];
-    return historyData.pages.slice().reverse().flatMap(page => page.messages).map((m: any): Message => ({
+    return historyData.pages.slice().reverse().flatMap((page: any) => page.messages).map((m: any): Message => ({
       id: m.id.toString(),
       sender: m.role === 'user' ? 'user' : 'ai',
       text: m.content
@@ -390,12 +390,18 @@ export default function AIPage() {
     if (!query.trim() || isLoading) return;
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: query };
     const aiId = (Date.now() + 1).toString();
-    setLocalMessages(p => [...p, userMsg, { id: aiId, sender: 'ai', text: '', isStreaming: true, query }]);
+    setLocalMessages((p: Message[]) => [...p, userMsg, { id: aiId, sender: 'ai', text: '', isStreaming: true, query }]);
     setInput(''); setIsLoading(true);
+
+    // ── Abort after 30 s if backend never starts streaming
+    const controller = new AbortController();
+    const abortTimer = setTimeout(() => controller.abort(), 30_000);
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         credentials: 'include', body: JSON.stringify({ message: query }),
+        signal: controller.signal,
       });
       if (!res.ok) { 
         const e = await res.json().catch(() => ({})); 
@@ -408,6 +414,8 @@ export default function AIPage() {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        // Each chunk resets the abort timer — connection is live
+        clearTimeout(abortTimer);
         for (const line of dec.decode(value, { stream: true }).split('\n')) {
           if (!line.startsWith('data: ')) continue;
           const str = line.slice(6).trim();
@@ -416,29 +424,34 @@ export default function AIPage() {
             const p = JSON.parse(str);
             if (p.rateLimited || p.isError || (p.error && !acc)) {
               hadError = true;
-              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: p.error || 'Inference service unavailable. Please try again.', isStreaming: false, isError: true } : m));
+              setLocalMessages((ms: Message[]) => ms.map(m => m.id === aiId ? { ...m, text: p.error || 'The service is currently unavailable. Please try again.', isStreaming: false, isError: true, query } : m));
             } else if (p.error) {
               acc += p.error;
-              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m));
+              setLocalMessages((ms: Message[]) => ms.map(m => m.id === aiId ? { ...m, text: acc } : m));
             } else if (p.content) { 
               acc += p.content; 
-              setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, text: acc } : m)); 
+              setLocalMessages((ms: Message[]) => ms.map(m => m.id === aiId ? { ...m, text: acc } : m)); 
             }
           } catch { /* ignore */ }
         }
       }
       if (!hadError) {
-        setLocalMessages(ms => ms.map(m => m.id === aiId ? { ...m, isStreaming: false } : m));
+        setLocalMessages((ms: Message[]) => ms.map(m => m.id === aiId ? { ...m, isStreaming: false } : m));
       }
     } catch (e: any) {
       console.error(e);
-      setLocalMessages(ms => ms.map(m => m.id === aiId ? {
+      const isTimeout = e.name === 'AbortError';
+      setLocalMessages((ms: Message[]) => ms.map(m => m.id === aiId ? {
         ...m,
-        text: e.message || 'Connection error. Please try again.',
+        text: isTimeout
+          ? 'The request timed out. Please try again.'
+          : (e.message || 'A connection error occurred. Please try again.'),
         isStreaming: false,
         isError: true,
+        query,
       } : m));
     } finally {
+      clearTimeout(abortTimer);
       setIsLoading(false);
     }
   };
@@ -527,8 +540,18 @@ export default function AIPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-bold text-destructive">Connection Issue</p>
                             <p className="text-[11px] text-foreground/90 mt-0.5">
-                              {m.text || 'Inference service unavailable. Please try again.'}
+                              {m.text || 'The service is currently unavailable. Please try again.'}
                             </p>
+                            {m.query && (
+                              <button
+                                onClick={() => sendMessage(m.query!)}
+                                disabled={isLoading}
+                                className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-destructive border border-destructive/40 px-2.5 py-1 rounded-none hover:bg-destructive/10 transition-all active:scale-95 disabled:opacity-40"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                Retry
+                              </button>
+                            )}
                           </div>
                         </div>
                       ) : (
@@ -605,8 +628,8 @@ export default function AIPage() {
             )}
           </div>
           <div className="px-3 sm:px-6 py-3 sm:py-4">
-            <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex items-center gap-2.5">
-              <input type="text" value={input} onChange={(e) => setInput(e.target.value)} disabled={isLoading || historyStatus === 'pending'} placeholder="Ask about repetitive tasks, automation ROI..." className="flex-1 bg-background border border-border/80 rounded-none px-4 py-3.5 sm:px-5 sm:py-4 text-sm sm:text-base text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all font-sans shadow-inner min-w-0" />
+            <form onSubmit={(e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); sendMessage(input); }} className="flex items-center gap-2.5">
+              <input type="text" value={input} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)} disabled={isLoading || historyStatus === 'pending'} placeholder="Ask about repetitive tasks, automation ROI..." className="flex-1 bg-background border border-border/80 rounded-none px-4 py-3.5 sm:px-5 sm:py-4 text-sm sm:text-base text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all font-sans shadow-inner min-w-0" />
               <button type="submit" disabled={!input.trim() || isLoading || historyStatus === 'pending'} className="p-3.5 sm:p-4 rounded-none bg-primary text-primary-foreground font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 shrink-0 hover:scale-[1.02] flex items-center justify-center">
                 <Send className="w-5 h-5 text-primary-foreground fill-primary-foreground" />
               </button>
